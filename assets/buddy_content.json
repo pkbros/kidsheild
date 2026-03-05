@@ -1,0 +1,142 @@
+{
+  "version": 1,
+  "categories": {
+    "motivational": {
+      "weight": 25,
+      "messages": [
+        { "text": "You're stronger than any screen! Go be awesome!", "timeOfDay": "any" },
+        { "text": "Real adventures happen outside of apps!", "timeOfDay": "any" },
+        { "text": "You've got so much talent — go show the world!", "timeOfDay": "any" },
+        { "text": "Every moment without a screen is a moment to grow!", "timeOfDay": "any" },
+        { "text": "The best stories come from real life, not screens!", "timeOfDay": "any" },
+        { "text": "Your brain is like a superhero — it needs a break to power up!", "timeOfDay": "any" },
+        { "text": "You're a star! Shine bright and do something amazing!", "timeOfDay": "any" },
+        { "text": "Screen-free time is your superpower charging time!", "timeOfDay": "any" },
+        { "text": "Believe in yourself — you can do anything without a screen!", "timeOfDay": "any" },
+        { "text": "Every great inventor started by playing and exploring!", "timeOfDay": "any" },
+        { "text": "Today is a great day to discover something new!", "timeOfDay": "morning" },
+        { "text": "Rise and shine! The morning is full of possibilities!", "timeOfDay": "morning" },
+        { "text": "You've already made it through a whole day — you're unstoppable!", "timeOfDay": "evening" },
+        { "text": "You're doing great today! Keep it up!", "timeOfDay": "afternoon" },
+        { "text": "The world needs your energy — go spread some joy!", "timeOfDay": "any" },
+        { "text": "You're braver than you believe and stronger than you think!", "timeOfDay": "any" },
+        { "text": "Every challenge makes you stronger. You've got this!", "timeOfDay": "any" },
+        { "text": "Great things happen when you step away from the screen!", "timeOfDay": "any" },
+        { "text": "Your imagination is the best app ever — use it!", "timeOfDay": "any" },
+        { "text": "You're amazing just the way you are! Now go be amazing!", "timeOfDay": "any" }
+      ]
+    },
+    "activity_suggestion": {
+      "weight": 30,
+      "messages": [
+        { "text": "How about drawing something cool right now?", "timeOfDay": "any" },
+        { "text": "Why not build something incredible with LEGO or blocks?", "timeOfDay": "any" },
+        { "text": "How about playing a board game with your family?", "timeOfDay": "evening" },
+        { "text": "The backyard is calling! Go explore outside!", "timeOfDay": "morning" },
+        { "text": "Perfect time to ride your bike or scooter!", "timeOfDay": "afternoon" },
+        { "text": "Why not grab a book and go on an imaginary adventure?", "timeOfDay": "any" },
+        { "text": "Try making up a new game with things around you!", "timeOfDay": "any" },
+        { "text": "How about writing a story or a letter to someone you care about?", "timeOfDay": "any" },
+        { "text": "Try doing some jumping jacks — bet you can beat your record!", "timeOfDay": "any" },
+        { "text": "What if you practiced a sport for a few minutes?", "timeOfDay": "afternoon" },
+        { "text": "Have you tried folding paper into cool origami shapes?", "timeOfDay": "any" },
+        { "text": "Go find a friend or sibling and play together!", "timeOfDay": "afternoon" },
+        { "text": "Why not help someone at home with a small task?", "timeOfDay": "any" },
+        { "text": "Try building the tallest tower you can with whatever you find!", "timeOfDay": "any" },
+        { "text": "How about coloring or painting something beautiful?", "timeOfDay": "any" },
+        { "text": "Perfect weather to go for a walk or play outside!", "timeOfDay": "morning" },
+        { "text": "Try making a funny comic strip on paper!", "timeOfDay": "any" },
+        { "text": "How about reading a chapter of your favorite book?", "timeOfDay": "evening" },
+        { "text": "Have you practiced your musical instrument today?", "timeOfDay": "afternoon" },
+        { "text": "Try doing a puzzle — they're great brain exercises!", "timeOfDay": "any" },
+        { "text": "Why not make a friendship bracelet for someone?", "timeOfDay": "any" },
+        { "text": "The evening is perfect for a cozy bedtime story!", "timeOfDay": "night" },
+        { "text": "How about a family game night? Ask your family to join!", "timeOfDay": "evening" },
+        { "text": "Try writing down three things you're grateful for today!", "timeOfDay": "evening" },
+        { "text": "Morning energy is the best! Go play outside!", "timeOfDay": "morning" }
+      ]
+    },
+    "fun_fact": {
+      "weight": 20,
+      "messages": [
+        { "text": "Did you know octopuses have 3 hearts? 🐙", "timeOfDay": "any" },
+        { "text": "Honey never goes bad! Archaeologists found 3000-year-old honey in Egyptian tombs!", "timeOfDay": "any" },
+        { "text": "A group of flamingos is called a 'flamboyance'! 🦩", "timeOfDay": "any" },
+        { "text": "Dolphins sleep with one eye open!", "timeOfDay": "any" },
+        { "text": "Bananas are berries, but strawberries aren't! 🍌", "timeOfDay": "any" },
+        { "text": "A bolt of lightning is 5 times hotter than the surface of the sun! ⚡", "timeOfDay": "any" },
+        { "text": "Sea otters hold hands while they sleep so they don't drift apart! 🦦", "timeOfDay": "any" },
+        { "text": "The shortest war in history lasted only 38 minutes!", "timeOfDay": "any" },
+        { "text": "A snail can sleep for three years! 🐌", "timeOfDay": "any" },
+        { "text": "There are more stars in the universe than grains of sand on Earth! ⭐", "timeOfDay": "any" },
+        { "text": "Butterflies taste with their feet! 🦋", "timeOfDay": "any" },
+        { "text": "The Eiffel Tower can be 15 cm taller in summer because of heat expansion!", "timeOfDay": "any" },
+        { "text": "Cats have over 20 vocalizations, including the purr! 🐱", "timeOfDay": "any" },
+        { "text": "An astronaut's footprints on the Moon will last for millions of years! 🌙", "timeOfDay": "any" },
+        { "text": "Elephants are the only animal that can't jump! 🐘", "timeOfDay": "any" },
+        { "text": "A day on Venus is longer than a year on Venus!", "timeOfDay": "any" },
+        { "text": "Cows have best friends and get stressed when separated! 🐄", "timeOfDay": "any" },
+        { "text": "The human nose can detect over 1 trillion different scents!", "timeOfDay": "any" },
+        { "text": "Wombat poop is cube-shaped! 💩", "timeOfDay": "any" },
+        { "text": "Sharks have been around longer than trees!", "timeOfDay": "any" },
+        { "text": "A cloud can weigh more than a million pounds!", "timeOfDay": "any" },
+        { "text": "Hummingbirds are the only birds that can fly backwards! 🐦", "timeOfDay": "any" },
+        { "text": "Your brain uses about 20% of your body's total energy!", "timeOfDay": "any" },
+        { "text": "Sloths can hold their breath for up to 40 minutes underwater! 🦥", "timeOfDay": "any" },
+        { "text": "The heart of a blue whale is so big, a small child could swim through its arteries! 🐋", "timeOfDay": "any" }
+      ]
+    },
+    "moral_lesson": {
+      "weight": 15,
+      "messages": [
+        { "text": "Being kind to someone today makes the world a better place.", "timeOfDay": "any" },
+        { "text": "Sharing isn't just nice — it's one of the bravest things you can do!", "timeOfDay": "any" },
+        { "text": "Everyone makes mistakes. What matters is that we learn from them!", "timeOfDay": "any" },
+        { "text": "Patience is a superpower. Great things take time!", "timeOfDay": "any" },
+        { "text": "True friends are the ones who like you for who you really are.", "timeOfDay": "any" },
+        { "text": "Saying 'sorry' when you're wrong takes real courage.", "timeOfDay": "any" },
+        { "text": "Helping someone who's having a tough day is the coolest thing ever.", "timeOfDay": "any" },
+        { "text": "Honesty is like a superpower — it makes you trustworthy!", "timeOfDay": "any" },
+        { "text": "Being different is what makes you special and amazing!", "timeOfDay": "any" },
+        { "text": "The best way to make a friend is to be a friend.", "timeOfDay": "any" },
+        { "text": "Listening to others is just as important as speaking.", "timeOfDay": "any" },
+        { "text": "It's okay to feel sad sometimes. Feelings are important!", "timeOfDay": "any" },
+        { "text": "Respect is treating everyone the way you'd like to be treated.", "timeOfDay": "any" },
+        { "text": "Saying 'thank you' makes other people feel valued and happy!", "timeOfDay": "any" },
+        { "text": "Hard work beats talent when talent doesn't work hard!", "timeOfDay": "any" },
+        { "text": "Standing up for someone who's being treated unfairly takes real bravery.", "timeOfDay": "any" },
+        { "text": "Good night! Remember, tomorrow is a chance to be even kinder!", "timeOfDay": "night" },
+        { "text": "Start your morning with a smile — it's contagious!", "timeOfDay": "morning" },
+        { "text": "Words can heal or hurt. Choose kind words always!", "timeOfDay": "any" },
+        { "text": "You don't have to be perfect — you just have to be kind.", "timeOfDay": "any" }
+      ]
+    },
+    "humor": {
+      "weight": 10,
+      "messages": [
+        { "text": "Even superheroes take breaks from screens!", "timeOfDay": "any" },
+        { "text": "What did the phone say to the kid? 'You're holding me too much!' 📱", "timeOfDay": "any" },
+        { "text": "If screens could talk, they'd say 'Go outside already!' 😄", "timeOfDay": "any" },
+        { "text": "Why did the tablet go to school? To become a 'smart' device! 😂", "timeOfDay": "any" },
+        { "text": "Breaking news: Kid discovers life exists beyond the screen! 📰", "timeOfDay": "any" },
+        { "text": "Me, your buddy, here to say: the real world has better graphics! 🌍", "timeOfDay": "any" },
+        { "text": "Plot twist: the most fun game is the one you play in real life!", "timeOfDay": "any" },
+        { "text": "I tried to think of a screen joke, but it was too 'pixelated'! 😄", "timeOfDay": "any" },
+        { "text": "Hey, I'm just a drawing and even I think going outside is cool!", "timeOfDay": "any" },
+        { "text": "What's faster than Wi-Fi? You running outside to play! 🏃", "timeOfDay": "any" },
+        { "text": "I'd high-five you, but I'm stuck on this screen! Go play for me!", "timeOfDay": "any" },
+        { "text": "Roses are red, screens are bright, go play outside with all your might! 🌹", "timeOfDay": "any" },
+        { "text": "If boredom was a superpower, you'd be the mightiest hero by now!", "timeOfDay": "any" },
+        { "text": "The screen is jealous of how awesome you are in real life!", "timeOfDay": "any" },
+        { "text": "Pro tip: fresh air doesn't need a charger! 🔋", "timeOfDay": "any" }
+      ]
+    }
+  },
+  "poses": ["waving", "thinking", "pointing", "encouraging"],
+  "timeOfDayBuckets": {
+    "morning": { "startHour": 6, "endHour": 12 },
+    "afternoon": { "startHour": 12, "endHour": 17 },
+    "evening": { "startHour": 17, "endHour": 21 },
+    "night": { "startHour": 21, "endHour": 6 }
+  }
+}

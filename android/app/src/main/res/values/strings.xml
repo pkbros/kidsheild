@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">KidShield</string>
+    <string name="accessibility_service_description">KidShield monitors which app is in the foreground to protect children from accessing restricted applications. This service only checks the package name of the current app and does not read any content.</string>
+</resources>

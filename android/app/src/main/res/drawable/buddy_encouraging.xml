@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Buddy mascot - encouraging pose: child with both arms up in a celebratory/encouraging gesture -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Shadow -->
+    <path
+        android:pathData="M60,185 Q100,195 140,185 Q100,190 60,185"
+        android:fillColor="#20000000"/>
+
+    <!-- Body (t-shirt) -->
+    <path
+        android:pathData="M70,110 L70,155 Q70,165 80,165 L120,165 Q130,165 130,155 L130,110 Q100,100 70,110Z"
+        android:fillColor="#AB47BC"/>
+
+    <!-- T-shirt collar -->
+    <path
+        android:pathData="M85,108 Q100,115 115,108"
+        android:strokeColor="#9C27B0"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"/>
+
+    <!-- Left arm (raised up) -->
+    <path
+        android:pathData="M70,115 L48,82 L52,80 L72,112"
+        android:fillColor="#FFCC80"/>
+
+    <!-- Right arm (raised up) -->
+    <path
+        android:pathData="M130,115 L152,82 L156,80 L133,112"
+        android:fillColor="#FFCC80"/>
+
+    <!-- Left hand (open palm up) -->
+    <path
+        android:pathData="M42,78 Q40,72 45,70 Q50,70 52,74 L52,80 L48,82 Q44,82 42,78Z"
+        android:fillColor="#FFCC80"/>
+
+    <!-- Right hand (open palm up) -->
+    <path
+        android:pathData="M158,78 Q160,72 155,70 Q150,70 148,74 L148,80 L152,82 Q156,82 158,78Z"
+        android:fillColor="#FFCC80"/>
+
+    <!-- Legs -->
+    <path
+        android:pathData="M80,165 L78,185 L88,185 L90,165"
+        android:fillColor="#5C6BC0"/>
+    <path
+        android:pathData="M110,165 L108,185 L118,185 L120,165"
+        android:fillColor="#5C6BC0"/>
+
+    <!-- Shoes -->
+    <path
+        android:pathData="M75,183 L90,183 Q92,183 92,186 L92,190 L73,190 L73,186 Q73,183 75,183Z"
+        android:fillColor="#66BB6A"/>
+    <path
+        android:pathData="M105,183 L120,183 Q122,183 122,186 L122,190 L103,190 L103,186 Q103,183 105,183Z"
+        android:fillColor="#66BB6A"/>
+
+    <!-- Head -->
+    <path
+        android:pathData="M100,55 m-30,0 a30,32 0 1,1 60,0 a30,32 0 1,1 -60,0"
+        android:fillColor="#FFCC80"/>
+
+    <!-- Hair -->
+    <path
+        android:pathData="M70,50 Q72,25 100,22 Q128,25 130,50 Q128,38 100,35 Q72,38 70,50Z"
+        android:fillColor="#5D4037"/>
+
+    <!-- Hair fringe -->
+    <path
+        android:pathData="M75,48 Q80,40 90,45 Q85,38 95,42 Q92,35 100,38"
+        android:fillColor="#5D4037"/>
+
+    <!-- Eyes (happy, slightly closed like cheering) -->
+    <path
+        android:pathData="M83,55 Q88,50 93,55"
+        android:strokeColor="#3E2723"
+        android:strokeWidth="3"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round"/>
+    <path
+        android:pathData="M107,55 Q112,50 117,55"
+        android:strokeColor="#3E2723"
+        android:strokeWidth="3"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round"/>
+
+    <!-- Big open-mouth smile -->
+    <path
+        android:pathData="M88,68 Q100,82 112,68"
+        android:strokeColor="#3E2723"
+        android:strokeWidth="2.5"
+        android:fillColor="#FFFFFF"
+        android:strokeLineCap="round"/>
+
+    <!-- Cheek blush (bigger for happy expression) -->
+    <path
+        android:pathData="M76,63 m-6,0 a6,4 0 1,1 12,0 a6,4 0 1,1 -12,0"
+        android:fillColor="#30EF5350"/>
+    <path
+        android:pathData="M124,63 m-6,0 a6,4 0 1,1 12,0 a6,4 0 1,1 -12,0"
+        android:fillColor="#30EF5350"/>
+
+    <!-- Celebration sparkles -->
+    <path
+        android:pathData="M35,68 L38,62 L41,68 L47,70 L41,72 L38,78 L35,72 L29,70Z"
+        android:fillColor="#FFC107"/>
+    <path
+        android:pathData="M159,68 L162,62 L165,68 L171,70 L165,72 L162,78 L159,72 L153,70Z"
+        android:fillColor="#FFC107"/>
+    <path
+        android:pathData="M95,12 L97,8 L99,12 L103,13 L99,15 L97,19 L95,15 L91,13Z"
+        android:fillColor="#FF7043"/>
+    <path
+        android:pathData="M140,30 L142,26 L144,30 L148,31 L144,33 L142,37 L140,33 L136,31Z"
+        android:fillColor="#4FC3F7"/>
+    <path
+        android:pathData="M56,30 L58,26 L60,30 L64,31 L60,33 L58,37 L56,33 L52,31Z"
+        android:fillColor="#66BB6A"/>
+</vector>

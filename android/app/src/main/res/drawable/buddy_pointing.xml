@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Buddy mascot - pointing pose: child pointing forward/at viewer with enthusiasm -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Shadow -->
+    <path
+        android:pathData="M60,185 Q100,195 140,185 Q100,190 60,185"
+        android:fillColor="#20000000"/>
+
+    <!-- Body (t-shirt) -->
+    <path
+        android:pathData="M70,110 L70,155 Q70,165 80,165 L120,165 Q130,165 130,155 L130,110 Q100,100 70,110Z"
+        android:fillColor="#FF7043"/>
+
+    <!-- T-shirt collar -->
+    <path
+        android:pathData="M85,108 Q100,115 115,108"
+        android:strokeColor="#F4511E"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"/>
+
+    <!-- Star on t-shirt -->
+    <path
+        android:pathData="M100,130 L103,138 L112,138 L105,143 L108,152 L100,147 L92,152 L95,143 L88,138 L97,138Z"
+        android:fillColor="#FFC107"/>
+
+    <!-- Left arm (relaxed) -->
+    <path
+        android:pathData="M70,115 L58,140 L61,143 L73,120"
+        android:fillColor="#FFCC80"/>
+
+    <!-- Right arm (pointing forward) -->
+    <path
+        android:pathData="M130,118 L155,110 L160,108"
+        android:strokeColor="#FFCC80"
+        android:strokeWidth="10"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round"/>
+
+    <!-- Pointing finger -->
+    <path
+        android:pathData="M158,106 L170,102"
+        android:strokeColor="#FFCC80"
+        android:strokeWidth="5"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round"/>
+
+    <!-- Left hand -->
+    <path
+        android:pathData="M55,140 Q51,145 58,147 Q62,145 61,143Z"
+        android:fillColor="#FFCC80"/>
+
+    <!-- Legs -->
+    <path
+        android:pathData="M80,165 L78,185 L88,185 L90,165"
+        android:fillColor="#5C6BC0"/>
+    <path
+        android:pathData="M110,165 L112,185 L122,185 L120,165"
+        android:fillColor="#5C6BC0"/>
+
+    <!-- Shoes -->
+    <path
+        android:pathData="M75,183 L90,183 Q92,183 92,186 L92,190 L73,190 L73,186 Q73,183 75,183Z"
+        android:fillColor="#42A5F5"/>
+    <path
+        android:pathData="M109,183 L124,183 Q126,183 126,186 L126,190 L107,190 L107,186 Q107,183 109,183Z"
+        android:fillColor="#42A5F5"/>
+
+    <!-- Head -->
+    <path
+        android:pathData="M100,55 m-30,0 a30,32 0 1,1 60,0 a30,32 0 1,1 -60,0"
+        android:fillColor="#FFCC80"/>
+
+    <!-- Hair -->
+    <path
+        android:pathData="M70,50 Q72,25 100,22 Q128,25 130,50 Q128,38 100,35 Q72,38 70,50Z"
+        android:fillColor="#5D4037"/>
+
+    <!-- Hair fringe -->
+    <path
+        android:pathData="M75,48 Q80,40 90,45 Q85,38 95,42 Q92,35 100,38"
+        android:fillColor="#5D4037"/>
+
+    <!-- Eyes (wide, excited) -->
+    <path
+        android:pathData="M88,55 m-5,0 a5,5 0 1,1 10,0 a5,5 0 1,1 -10,0"
+        android:fillColor="#3E2723"/>
+    <path
+        android:pathData="M112,55 m-5,0 a5,5 0 1,1 10,0 a5,5 0 1,1 -10,0"
+        android:fillColor="#3E2723"/>
+
+    <!-- Eye shine -->
+    <path
+        android:pathData="M86,53 m-2,0 a2,2 0 1,1 4,0 a2,2 0 1,1 -4,0"
+        android:fillColor="#FFFFFF"/>
+    <path
+        android:pathData="M110,53 m-2,0 a2,2 0 1,1 4,0 a2,2 0 1,1 -4,0"
+        android:fillColor="#FFFFFF"/>
+
+    <!-- Big smile -->
+    <path
+        android:pathData="M88,68 Q100,80 112,68"
+        android:strokeColor="#3E2723"
+        android:strokeWidth="2.5"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round"/>
+
+    <!-- Cheek blush -->
+    <path
+        android:pathData="M78,65 m-5,0 a5,3 0 1,1 10,0 a5,3 0 1,1 -10,0"
+        android:fillColor="#20EF5350"/>
+    <path
+        android:pathData="M122,65 m-5,0 a5,3 0 1,1 10,0 a5,3 0 1,1 -10,0"
+        android:fillColor="#20EF5350"/>
+
+    <!-- Emphasis sparkle near pointing finger -->
+    <path
+        android:pathData="M172,95 L175,90 L178,95 L183,96 L178,98 L175,103 L172,98 L167,96Z"
+        android:fillColor="#FFC107"/>
+</vector>
