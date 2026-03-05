@@ -285,4 +285,16 @@ class PlatformService {
   static Future<void> setNudgeThreshold(int threshold) async {
     await _channel.invokeMethod('setNudgeThreshold', {'threshold': threshold});
   }
+
+  // ─── Detection Mode ───
+
+  /// Get the current detection mode and permission state.
+  /// Returns: { mode: "hybrid"|"polling"|"accessibility"|"none",
+  ///            usageStatsGranted: bool, accessibilityEnabled: bool,
+  ///            pollingActive: bool }
+  static Future<Map<String, dynamic>> getDetectionMode() async {
+    final result = await _channel.invokeMethod('getDetectionMode');
+    if (result == null) return {};
+    return Map<String, dynamic>.from(result as Map);
+  }
 }

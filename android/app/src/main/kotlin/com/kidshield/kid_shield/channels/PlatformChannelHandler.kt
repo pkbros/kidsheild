@@ -414,6 +414,24 @@ class PlatformChannelHandler(
                 result.success(true)
             }
 
+            // === Detection Mode Status ===
+            "getDetectionMode" -> {
+                val a11yEnabled = isAccessibilityEnabled()
+                val usageGranted = hasUsageStatsPermission()
+                val mode = when {
+                    usageGranted && a11yEnabled -> "hybrid"       // Both active: polling + instant a11y
+                    usageGranted -> "polling"                     // Primary: UsageStats polling
+                    a11yEnabled -> "accessibility"                // Legacy: a11y only
+                    else -> "none"                                // No detection available
+                }
+                result.success(mapOf(
+                    "mode" to mode,
+                    "usageStatsGranted" to usageGranted,
+                    "accessibilityEnabled" to a11yEnabled,
+                    "pollingActive" to (KidShieldForegroundService.isRunning && usageGranted)
+                ))
+            }
+
             else -> result.notImplemented()
         }
     }

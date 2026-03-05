@@ -41,12 +41,10 @@ class _PermissionScreenState extends State<PermissionScreen>
       icon: Icons.camera_alt,
       isGranted: false,
     );
-    _permissions['accessibility'] = _PermissionItem(
-      title: 'Accessibility Service',
-      description: 'Monitors which app is in the foreground.\n'
-          'If "Restricted setting" appears, go to App Info \u2192 '
-          'tap \u22ee menu \u2192 Allow restricted settings first.',
-      icon: Icons.accessibility,
+    _permissions['usageStats'] = _PermissionItem(
+      title: 'Usage Access',
+      description: 'Required — detects which app is in the foreground to block restricted apps',
+      icon: Icons.bar_chart,
       isGranted: false,
     );
     _permissions['overlay'] = _PermissionItem(
@@ -73,6 +71,14 @@ class _PermissionScreenState extends State<PermissionScreen>
       icon: Icons.notifications,
       isGranted: false,
     );
+    _permissions['accessibility'] = _PermissionItem(
+      title: 'Accessibility (Optional)',
+      description: 'Speeds up app detection from ~300ms to instant. '
+          'Not required — skip if "Restricted setting" appears.',
+      icon: Icons.accessibility,
+      isGranted: false,
+      isOptional: true,
+    );
 
     _checkAllPermissions();
   }
@@ -80,6 +86,8 @@ class _PermissionScreenState extends State<PermissionScreen>
   Future<void> _checkAllPermissions() async {
     final cameraStatus = await Permission.camera.status;
     final notifStatus = await Permission.notification.status;
+    final usageStatsGranted =
+        await PlatformService.checkUsageStatsPermission();
     final accessibilityGranted =
         await PlatformService.checkAccessibilityPermission();
     final overlayGranted = await PlatformService.checkOverlayPermission();
@@ -90,12 +98,16 @@ class _PermissionScreenState extends State<PermissionScreen>
     setState(() {
       _permissions['camera']!.isGranted = cameraStatus.isGranted;
       _permissions['notification']!.isGranted = notifStatus.isGranted;
+      _permissions['usageStats']!.isGranted = usageStatsGranted;
       _permissions['accessibility']!.isGranted = accessibilityGranted;
       _permissions['overlay']!.isGranted = overlayGranted;
       _permissions['deviceAdmin']!.isGranted = deviceAdminGranted;
       _permissions['battery']!.isGranted = batteryGranted;
 
-      _allGranted = _permissions.values.every((p) => p.isGranted);
+      // All required permissions (optional ones excluded from gate check)
+      _allGranted = _permissions.entries
+          .where((e) => !e.value.isOptional)
+          .every((e) => e.value.isGranted);
     });
   }
 
@@ -106,6 +118,9 @@ class _PermissionScreenState extends State<PermissionScreen>
         break;
       case 'notification':
         await Permission.notification.request();
+        break;
+      case 'usageStats':
+        await PlatformService.requestUsageStatsPermission();
         break;
       case 'accessibility':
         await PlatformService.requestAccessibilityPermission();
@@ -149,8 +164,8 @@ class _PermissionScreenState extends State<PermissionScreen>
                 Expanded(
                   child: Text(
                     _allGranted
-                        ? 'All permissions granted!'
-                        : 'Please grant all permissions for KidShield to work properly.',
+                        ? 'All required permissions granted!'
+                        : 'Please grant the required permissions for KidShield to work.',
                     style: TextStyle(
                       color: _allGranted ? Colors.green[800] : Colors.orange[800],
                     ),
@@ -169,14 +184,23 @@ class _PermissionScreenState extends State<PermissionScreen>
                 final item = entry.value;
                 return Card(
                   margin: const EdgeInsets.only(bottom: 8),
+                  color: item.isOptional
+                      ? Colors.grey.withValues(alpha: 0.04)
+                      : null,
                   child: ListTile(
                     leading: CircleAvatar(
                       backgroundColor: item.isGranted
                           ? Colors.green.withValues(alpha: 0.2)
-                          : Colors.grey.withValues(alpha: 0.2),
+                          : item.isOptional
+                              ? Colors.blue.withValues(alpha: 0.1)
+                              : Colors.grey.withValues(alpha: 0.2),
                       child: Icon(
                         item.icon,
-                        color: item.isGranted ? Colors.green : Colors.grey,
+                        color: item.isGranted
+                            ? Colors.green
+                            : item.isOptional
+                                ? Colors.blue
+                                : Colors.grey,
                       ),
                     ),
                     title: Text(
@@ -191,7 +215,7 @@ class _PermissionScreenState extends State<PermissionScreen>
                         ? const Icon(Icons.check_circle, color: Colors.green)
                         : TextButton(
                             onPressed: () => _requestPermission(key),
-                            child: const Text('Grant'),
+                            child: Text(item.isOptional ? 'Enable' : 'Grant'),
                           ),
                   ),
                 );
@@ -264,6 +288,7 @@ class _PermissionItem {
   final String title;
   final String description;
   final IconData icon;
+  final bool isOptional;
   bool isGranted;
 
   _PermissionItem({
@@ -271,5 +296,6 @@ class _PermissionItem {
     required this.description,
     required this.icon,
     required this.isGranted,
+    this.isOptional = false,
   });
 }

@@ -288,6 +288,8 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Widget _buildStatusCard(BuildContext context, AppState appState) {
     final isActive = appState.isProtectionEnabled && _serviceRunning;
+    final detectionMode = appState.detectionMode;
+    final modeStr = appState.detectionModeLabel;
 
     return Card(
       elevation: 0,
@@ -342,6 +344,28 @@ class _DashboardScreenState extends State<DashboardScreen>
                       color: isActive ? Colors.green[600] : Colors.red[600],
                     ),
                   ),
+                  if (isActive) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          detectionMode['mode'] == 'hybrid'
+                              ? Icons.bolt
+                              : Icons.poll,
+                          size: 14,
+                          color: Colors.green[400],
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          modeStr,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.green[400],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

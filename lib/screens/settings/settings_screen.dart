@@ -204,6 +204,12 @@ class SettingsScreen extends StatelessWidget {
 
               const SizedBox(height: 16),
 
+              // Section: Detection Engine
+              _buildSectionHeader(context, 'Detection Engine'),
+              _buildDetectionModeCard(context, appState),
+
+              const SizedBox(height: 16),
+
               // Section: System
               _buildSectionHeader(context, 'System'),
               _buildSettingsTile(
@@ -263,6 +269,111 @@ class SettingsScreen extends StatelessWidget {
               color: Theme.of(context).colorScheme.primary,
             ),
       ),
+    );
+  }
+
+  Widget _buildDetectionModeCard(BuildContext context, AppState appState) {
+    final mode = appState.detectionMode;
+    final modeStr = mode['mode'] as String? ?? 'none';
+    final usageGranted = mode['usageStatsGranted'] as bool? ?? false;
+    final a11yEnabled = mode['accessibilityEnabled'] as bool? ?? false;
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  modeStr == 'hybrid'
+                      ? Icons.bolt
+                      : modeStr == 'none'
+                          ? Icons.warning
+                          : Icons.poll,
+                  color: modeStr == 'none' ? Colors.red : Colors.green,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  appState.detectionModeLabel,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // UsageStats status
+            _buildDetectionRow(
+              'Usage Stats (Primary)',
+              usageGranted,
+              usageGranted ? null : () async {
+                await PlatformService.requestUsageStatsPermission();
+              },
+            ),
+            const SizedBox(height: 8),
+
+            // Accessibility status
+            _buildDetectionRow(
+              'Accessibility (Optional Boost)',
+              a11yEnabled,
+              a11yEnabled ? null : () async {
+                await PlatformService.requestAccessibilityPermission();
+              },
+            ),
+
+            if (!usageGranted) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Usage Access is required for app detection to work.',
+                style: TextStyle(fontSize: 12, color: Colors.red[700]),
+              ),
+            ] else if (!a11yEnabled) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Enable Accessibility for instant (0ms) detection. '
+                'Without it, polling detects apps in ~300ms.',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetectionRow(String label, bool enabled, VoidCallback? onEnable) {
+    return Row(
+      children: [
+        Icon(
+          enabled ? Icons.check_circle : Icons.radio_button_unchecked,
+          size: 18,
+          color: enabled ? Colors.green : Colors.grey,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(label, style: const TextStyle(fontSize: 13)),
+        ),
+        if (onEnable != null)
+          TextButton(
+            onPressed: onEnable,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              minimumSize: const Size(0, 32),
+            ),
+            child: const Text('Enable', style: TextStyle(fontSize: 12)),
+          )
+        else
+          Text('Active', style: TextStyle(fontSize: 12, color: Colors.green[600])),
+      ],
     );
   }
 
