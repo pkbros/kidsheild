@@ -13,6 +13,9 @@ class AppState extends ChangeNotifier {
   List<String> _registeredFaces = [];
   bool _isLoading = true;
 
+  // Detection mode
+  Map<String, dynamic> _detectionMode = {};
+
   // Analytics state
   Map<String, dynamic> _todayStats = {};
   Map<String, dynamic> _yesterdayStats = {};
@@ -32,6 +35,22 @@ class AppState extends ChangeNotifier {
   List<String> get blockedApps => _blockedApps;
   List<String> get registeredFaces => _registeredFaces;
   bool get isLoading => _isLoading;
+
+  // Detection mode getters
+  Map<String, dynamic> get detectionMode => _detectionMode;
+  String get detectionModeLabel {
+    final mode = _detectionMode['mode'] as String? ?? 'none';
+    switch (mode) {
+      case 'hybrid':
+        return 'Hybrid (Instant + Polling)';
+      case 'polling':
+        return 'UsageStats Polling (~300ms)';
+      case 'accessibility':
+        return 'Accessibility (Instant)';
+      default:
+        return 'Not Active';
+    }
+  }
 
   // Analytics getters
   Map<String, dynamic> get todayStats => _todayStats;
@@ -54,6 +73,9 @@ class AppState extends ChangeNotifier {
       _blockedApps = await PlatformService.getBlockedApps();
       _registeredFaces = await PlatformService.getRegisteredFaces();
 
+      // Load detection mode
+      _detectionMode = await PlatformService.getDetectionMode();
+
       // Load analytics data
       await refreshAnalytics();
     } catch (e) {
@@ -68,6 +90,7 @@ class AppState extends ChangeNotifier {
   /// Refresh all analytics data from the platform.
   Future<void> refreshAnalytics() async {
     try {
+      _detectionMode = await PlatformService.getDetectionMode();
       _todayStats = await PlatformService.getTodayStats();
       _yesterdayStats = await PlatformService.getYesterdayStats();
       _currentStreak = await PlatformService.getCurrentStreakInfo();

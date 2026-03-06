@@ -40,9 +40,9 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.kidshield.kid_shield.R
+import com.kidshield.kid_shield.services.AppBlockingController
 import com.kidshield.kid_shield.services.BuddyContentEngine
 import com.kidshield.kid_shield.services.FaceRecognitionEngine
-import com.kidshield.kid_shield.services.KidShieldAccessibilityService
 import com.kidshield.kid_shield.services.UsageTrackingEngine
 import java.security.MessageDigest
 import java.util.concurrent.ExecutorService
@@ -1203,8 +1203,8 @@ class BlockingOverlayActivity : AppCompatActivity() {
 
         Toast.makeText(this, "✓ Access granted", Toast.LENGTH_SHORT).show()
 
-        // Notify accessibility service that overlay is closing (don't reset foreground tracking)
-        KidShieldAccessibilityService.instance?.onOverlayDismissed()
+        // Notify the shared controller that overlay is closing
+        AppBlockingController.getInstance(this).onOverlayDismissed()
 
         // Close overlay
         finish()
@@ -1309,8 +1309,9 @@ class BlockingOverlayActivity : AppCompatActivity() {
             flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
         }
         startActivity(homeIntent)
-        KidShieldAccessibilityService.instance?.onOverlayDismissed()
-        KidShieldAccessibilityService.instance?.resetLastDetected()
+        val ctrl = AppBlockingController.getInstance(this)
+        ctrl.onOverlayDismissed()
+        ctrl.resetLastDetected()
         finish()
     }
 
@@ -1340,8 +1341,8 @@ class BlockingOverlayActivity : AppCompatActivity() {
         faceEngine.close()
 
         // Safety net: if onOverlayDismissed() wasn't called (e.g., system killed us),
-        // reset the flag so the accessibility service isn't permanently blocked.
-        KidShieldAccessibilityService.instance?.onOverlayDismissed()
+        // reset the flag so detection isn't permanently blocked.
+        AppBlockingController.getInstance(this).onOverlayDismissed()
 
         super.onDestroy()
     }

@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Handler
@@ -26,10 +27,15 @@ class KidShieldForegroundService : Service() {
             private set
     }
 
+    private var pollingEngine: UsageStatsPollingEngine? = null
+
     private val watchdogHandler = Handler(Looper.getMainLooper())
     private val watchdogRunnable = object : Runnable {
         override fun run() {
-            // Ping the accessibility service to unstick any stale state
+            // Health-check the blocking controller (replaces old a11y healthCheck)
+            AppBlockingController.getInstance(this@KidShieldForegroundService).healthCheck()
+
+            // Also ping the accessibility service if it's active (optional accelerator)
             KidShieldAccessibilityService.instance?.healthCheck()
 
             // Check streak milestones and update screen time (analytics)
@@ -58,7 +64,15 @@ class KidShieldForegroundService : Service() {
         val notification = buildNotification()
         startForeground(NOTIFICATION_ID, notification)
 
-        // Start watchdog that periodically health-checks the accessibility service
+        // Start the UsageStatsManager polling engine (primary detection)
+        if (hasUsageStatsPermission()) {
+            pollingEngine = UsageStatsPollingEngine(this).also { it.start() }
+            Log.d(TAG, "UsageStats polling engine started (primary detection)")
+        } else {
+            Log.w(TAG, "UsageStats permission not granted — relying on AccessibilityService only")
+        }
+
+        // Start watchdog
         watchdogHandler.removeCallbacks(watchdogRunnable)
         watchdogHandler.postDelayed(watchdogRunnable, WATCHDOG_INTERVAL_MS)
 
@@ -69,10 +83,27 @@ class KidShieldForegroundService : Service() {
 
     override fun onDestroy() {
         isRunning = false
+        pollingEngine?.stop()
+        pollingEngine = null
         watchdogHandler.removeCallbacks(watchdogRunnable)
         Log.d(TAG, "Foreground service destroyed")
         super.onDestroy()
     }
+
+    private fun hasUsageStatsPermission(): Boolean {
+        val appOps = getSystemService(Context.APP_OPS_SERVICE) as android.app.AppOpsManager
+        val mode = appOps.checkOpNoThrow(
+            android.app.AppOpsManager.OPSTR_GET_USAGE_STATS,
+            android.os.Process.myUid(),
+            packageName
+        )
+        return mode == android.app.AppOpsManager.MODE_ALLOWED
+    }
+
+    /**
+     * Returns whether the polling engine is currently active.
+     */
+    fun isPollingActive(): Boolean = pollingEngine?.isPolling() == true
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         Log.d(TAG, "Task removed — scheduling restart")
