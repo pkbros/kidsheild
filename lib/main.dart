@@ -11,6 +11,8 @@ import 'screens/onboarding/permission_screen.dart';
 import 'screens/onboarding/app_selection_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/dashboard/weekly_summary_screen.dart';
+import 'screens/earn_time/task_assignment_screen.dart';
+import 'screens/earn_time/daily_budget_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/settings/manage_faces_screen.dart';
 
@@ -59,6 +61,8 @@ class KidShieldApp extends StatelessWidget {
           '/manage-faces': (context) => const ManageFacesScreen(),
           '/permission-check': (context) => const PermissionScreen(),
           '/weekly-summary': (context) => const WeeklySummaryScreen(),
+          '/task-assignment': (context) => const TaskAssignmentScreen(),
+          '/daily-budget': (context) => const DailyBudgetScreen(),
         },
       ),
     );

@@ -142,6 +142,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                 _buildReportCard(context, appState),
                 const SizedBox(height: 16),
 
+                // Daily Budget (Earn-Time)
+                if (appState.isTimerEnabled)
+                  _buildDailyBudgetCard(context, appState),
+                if (appState.isTimerEnabled) const SizedBox(height: 16),
+
                 // Current Streak
                 _buildStreakCard(context, appState),
                 const SizedBox(height: 16),
@@ -171,6 +176,28 @@ class _DashboardScreenState extends State<DashboardScreen>
                     if (await _verifyAccess()) {
                       if (mounted) {
                         Navigator.pushNamed(context, '/manage-apps');
+                      }
+                    }
+                  },
+                ),
+                _buildActionTile(
+                  context,
+                  icon: Icons.timer,
+                  title: 'Daily Budget',
+                  subtitle: 'View time remaining and task progress',
+                  onTap: () {
+                    Navigator.pushNamed(context, '/daily-budget');
+                  },
+                ),
+                _buildActionTile(
+                  context,
+                  icon: Icons.task_alt,
+                  title: 'Manage Tasks',
+                  subtitle: 'Create daily tasks to earn screen time',
+                  onTap: () async {
+                    if (await _verifyAccess()) {
+                      if (mounted) {
+                        Navigator.pushNamed(context, '/task-assignment');
                       }
                     }
                   },
@@ -547,6 +574,134 @@ class _DashboardScreenState extends State<DashboardScreen>
           style: TextStyle(fontSize: 11, color: color),
         ),
       ],
+    );
+  }
+
+  // ────────────────────────── Daily Budget ──────────────────────────
+
+  Widget _buildDailyBudgetCard(BuildContext context, AppState appState) {
+    final remaining = appState.remainingMinutes;
+    final used = appState.usedTodayMinutes;
+    final limit = appState.dailyLimitMinutes;
+    final earned = appState.earnedTodayMinutes;
+    final pending = appState.pendingTaskCount;
+
+    return Card(
+      elevation: 0,
+      color: remaining > 0
+          ? Colors.purple.withValues(alpha: 0.06)
+          : Colors.red.withValues(alpha: 0.08),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: remaining > 0
+              ? Colors.purple.withValues(alpha: 0.3)
+              : Colors.red.withValues(alpha: 0.3),
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => Navigator.pushNamed(context, '/daily-budget'),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.timer,
+                      color: remaining > 0
+                          ? Colors.purple[600]
+                          : Colors.red[600],
+                      size: 22),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Daily Budget',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: remaining > 0
+                          ? Colors.purple[800]
+                          : Colors.red[800],
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(Icons.chevron_right, color: Colors.grey[400]),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Text(
+                          '$remaining',
+                          style: TextStyle(
+                            fontSize: 36,
+                            fontWeight: FontWeight.bold,
+                            color: remaining > 0
+                                ? Colors.purple[700]
+                                : Colors.red[700],
+                          ),
+                        ),
+                        Text(
+                          'min remaining',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Text(
+                          '$used / $limit',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          'min used',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        if (earned > 0) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            '+$earned min earned',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green[700],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (pending > 0) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '🌟 $pending task${pending == 1 ? '' : 's'} available to earn more time',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.purple[600],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 

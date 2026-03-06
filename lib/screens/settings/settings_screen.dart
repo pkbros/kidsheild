@@ -95,6 +95,52 @@ class SettingsScreen extends StatelessWidget {
 
               const SizedBox(height: 16),
 
+              // Section: Daily Time Limit & Earn Time
+              _buildSectionHeader(context, 'Daily Time Limit'),
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+                ),
+                child: SwitchListTile(
+                  title: const Text('Enable Daily Timer'),
+                  subtitle: Text(
+                    appState.isTimerEnabled
+                        ? '${appState.dailyLimitMinutes} min daily limit'
+                        : 'No time limit enforced',
+                  ),
+                  value: appState.isTimerEnabled,
+                  onChanged: (v) => appState.setTimerEnabled(v),
+                  secondary: Icon(
+                    Icons.timer,
+                    color: appState.isTimerEnabled
+                        ? Colors.purple
+                        : Colors.grey,
+                  ),
+                ),
+              ),
+              if (appState.isTimerEnabled) ...[
+                const SizedBox(height: 8),
+                _buildSettingsTile(
+                  context,
+                  icon: Icons.schedule,
+                  title: 'Daily Limit',
+                  subtitle: '${appState.dailyLimitMinutes} minutes per day',
+                  onTap: () => _showDailyLimitPicker(context, appState),
+                ),
+              ],
+              const SizedBox(height: 8),
+              _buildSettingsTile(
+                context,
+                icon: Icons.task_alt,
+                title: 'Manage Earn-Time Tasks',
+                subtitle: '${appState.tasks.length} tasks defined',
+                onTap: () => Navigator.pushNamed(context, '/task-assignment'),
+              ),
+
+              const SizedBox(height: 16),
+
               // Section: Buddy Mascot
               _buildSectionHeader(context, 'Overlay Style'),
               Card(
@@ -626,6 +672,40 @@ class SettingsScreen extends StatelessWidget {
             onChanged: (v) {
               if (v != null) {
                 appState.setNudgeThreshold(v);
+                Navigator.pop(ctx);
+              }
+            },
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  void _showDailyLimitPicker(BuildContext context, AppState appState) {
+    final options = [
+      {'label': '15 minutes', 'value': 15},
+      {'label': '30 minutes', 'value': 30},
+      {'label': '45 minutes', 'value': 45},
+      {'label': '1 hour', 'value': 60},
+      {'label': '1.5 hours', 'value': 90},
+      {'label': '2 hours', 'value': 120},
+      {'label': '3 hours', 'value': 180},
+      {'label': '4 hours', 'value': 240},
+    ];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Daily Screen Time Limit'),
+        children: options.map((opt) {
+          final val = opt['value'] as int;
+          return RadioListTile<int>(
+            title: Text(opt['label'] as String),
+            value: val,
+            groupValue: appState.dailyLimitMinutes,
+            onChanged: (v) {
+              if (v != null) {
+                appState.setDailyLimit(v);
                 Navigator.pop(ctx);
               }
             },

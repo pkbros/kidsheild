@@ -26,6 +26,11 @@ class AppState extends ChangeNotifier {
   String? _parentInsight;
   int _nudgeThreshold = 5;
 
+  // Earn-time / daily timer state
+  Map<String, dynamic> _timerStatus = {};
+  Map<String, dynamic> _taskStatus = {};
+  List<Map<String, dynamic>> _tasks = [];
+
   bool get isSetupComplete => _isSetupComplete;
   bool get isProtectionEnabled => _isProtectionEnabled;
   int get reverificationInterval => _reverificationInterval;
@@ -61,6 +66,17 @@ class AppState extends ChangeNotifier {
   bool get isParentTrackingEnabled => _isParentTrackingEnabled;
   String? get parentInsight => _parentInsight;
   int get nudgeThreshold => _nudgeThreshold;
+
+  // Earn-time getters
+  Map<String, dynamic> get timerStatus => _timerStatus;
+  Map<String, dynamic> get taskStatus => _taskStatus;
+  List<Map<String, dynamic>> get tasks => _tasks;
+  bool get isTimerEnabled => _timerStatus['enabled'] == true;
+  int get dailyLimitMinutes => (_timerStatus['dailyLimitMinutes'] as int?) ?? 30;
+  int get usedTodayMinutes => (_timerStatus['usedTodayMinutes'] as int?) ?? 0;
+  int get remainingMinutes => (_timerStatus['remainingMinutes'] as int?) ?? 30;
+  int get earnedTodayMinutes => (_taskStatus['earnedMinutes'] as int?) ?? 0;
+  int get pendingTaskCount => (_taskStatus['pendingCount'] as int?) ?? 0;
 
   Future<void> initialize() async {
     try {
@@ -99,6 +115,9 @@ class AppState extends ChangeNotifier {
       _isParentTrackingEnabled = await PlatformService.isParentTrackingEnabled();
       _parentInsight = await PlatformService.getParentInsight();
       _nudgeThreshold = await PlatformService.getNudgeThreshold();
+      _timerStatus = await PlatformService.getTimerStatus();
+      _taskStatus = await PlatformService.getTaskStatus();
+      _tasks = await PlatformService.getTasks();
       notifyListeners();
     } catch (e) {
       debugPrint('AppState.refreshAnalytics() error: $e');
@@ -169,6 +188,27 @@ class AppState extends ChangeNotifier {
   Future<void> setNudgeThreshold(int threshold) async {
     await PlatformService.setNudgeThreshold(threshold);
     _nudgeThreshold = threshold;
+    notifyListeners();
+  }
+
+  // ─── Earn-Time / Daily Timer ───
+
+  Future<void> setTimerEnabled(bool enabled) async {
+    await PlatformService.setTimerEnabled(enabled);
+    _timerStatus = await PlatformService.getTimerStatus();
+    notifyListeners();
+  }
+
+  Future<void> setDailyLimit(int minutes) async {
+    await PlatformService.setDailyLimit(minutes);
+    _timerStatus = await PlatformService.getTimerStatus();
+    notifyListeners();
+  }
+
+  Future<void> refreshTasks() async {
+    _tasks = await PlatformService.getTasks();
+    _taskStatus = await PlatformService.getTaskStatus();
+    _timerStatus = await PlatformService.getTimerStatus();
     notifyListeners();
   }
 }

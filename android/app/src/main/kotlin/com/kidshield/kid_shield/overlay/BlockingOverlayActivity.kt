@@ -42,7 +42,9 @@ import com.google.gson.reflect.TypeToken
 import com.kidshield.kid_shield.R
 import com.kidshield.kid_shield.services.AppBlockingController
 import com.kidshield.kid_shield.services.BuddyContentEngine
+import com.kidshield.kid_shield.services.DailyTimerEngine
 import com.kidshield.kid_shield.services.FaceRecognitionEngine
+import com.kidshield.kid_shield.services.TaskManager
 import com.kidshield.kid_shield.services.UsageTrackingEngine
 import java.security.MessageDigest
 import java.util.concurrent.ExecutorService
@@ -95,6 +97,9 @@ class BlockingOverlayActivity : AppCompatActivity() {
     private var videoTextureView: TextureView? = null
     private var videoBuddyBubble: TextView? = null
 
+    // Track whether this is a time-limit overlay
+    private var isTimeLimitMode = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -103,20 +108,311 @@ class BlockingOverlayActivity : AppCompatActivity() {
         buddyEngine = BuddyContentEngine(this)
         cameraExecutor = Executors.newSingleThreadExecutor()
 
-        overlayMode = buddyEngine.getOverlayMode()
-        isMascotMode = overlayMode != BuddyContentEngine.MODE_CLASSIC
+        blockedPackage = intent.getStringExtra("blocked_package") ?: ""
+        isTimeLimitMode = intent.getBooleanExtra("time_limit_reached", false)
 
-        when (overlayMode) {
-            BuddyContentEngine.MODE_VIDEO -> buildVideoUI()
-            BuddyContentEngine.MODE_BUDDY -> buildBuddyUI()
-            else -> buildClassicUI()
+        if (isTimeLimitMode) {
+            buildTimeLimitUI()
+            Log.d(TAG, "Time-limit overlay launched for: $blockedPackage")
+        } else {
+            overlayMode = buddyEngine.getOverlayMode()
+            isMascotMode = overlayMode != BuddyContentEngine.MODE_CLASSIC
+
+            when (overlayMode) {
+                BuddyContentEngine.MODE_VIDEO -> buildVideoUI()
+                BuddyContentEngine.MODE_BUDDY -> buildBuddyUI()
+                else -> buildClassicUI()
+            }
+
+            Log.d(TAG, "Overlay launched for: $blockedPackage (mascot: $isMascotMode)")
+
+            setupAppInfo()
+            setupButtons()
+        }
+    }
+
+    // ─── Time Limit / Earn-Time Task Overlay ───
+
+    private fun buildTimeLimitUI() {
+        val timer = DailyTimerEngine.getInstance(this)
+        val taskMgr = TaskManager.getInstance(this)
+        val tasks = taskMgr.getTodayTaskStatus()
+        val pendingCount = taskMgr.getPendingTaskCount()
+        val earnedMinutes = taskMgr.getTodayEarnedMinutes()
+        val usedMinutes = timer.getUsedTodayMinutes()
+        val limitMinutes = timer.getEffectiveLimitMinutes()
+
+        val scrollView = ScrollView(this).apply {
+            isFillViewport = true
+            setBackgroundColor(0xFFF3E5F5.toInt()) // light purple
         }
 
-        blockedPackage = intent.getStringExtra("blocked_package") ?: ""
-        Log.d(TAG, "Overlay launched for: $blockedPackage (mascot: $isMascotMode)")
+        val mainLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(24), dp(40), dp(24), dp(24))
+        }
 
-        setupAppInfo()
-        setupButtons()
+        // ── Buddy image ──
+        val buddyImg = ImageView(this).apply {
+            val lp = LinearLayout.LayoutParams(dp(120), dp(120))
+            lp.gravity = Gravity.CENTER
+            lp.bottomMargin = dp(12)
+            layoutParams = lp
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setImageResource(R.drawable.buddy_thinking)
+        }
+        mainLayout.addView(buddyImg)
+
+        // ── Time's up message ──
+        val titleText = TextView(this).apply {
+            text = "⏰ Time's Up!"
+            textSize = 24f
+            setTextColor(0xFF6A1B9A.toInt())
+            gravity = Gravity.CENTER
+            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            lp.bottomMargin = dp(8)
+            layoutParams = lp
+        }
+        mainLayout.addView(titleText)
+
+        // ── Usage summary ──
+        val summaryText = TextView(this).apply {
+            text = "You've used $usedMinutes of $limitMinutes minutes today" +
+                    if (earnedMinutes > 0) "\n(+$earnedMinutes min earned from tasks!)" else ""
+            textSize = 14f
+            setTextColor(0xFF7B1FA2.toInt())
+            gravity = Gravity.CENTER
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            lp.bottomMargin = dp(20)
+            layoutParams = lp
+        }
+        mainLayout.addView(summaryText)
+
+        // ── Task list ──
+        if (tasks.isNotEmpty()) {
+            val taskHeader = TextView(this).apply {
+                text = if (pendingCount > 0) "🌟 Complete a task to earn more time!" else "✅ All tasks completed!"
+                textSize = 16f
+                setTextColor(0xFF4A148C.toInt())
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                val lp = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+                lp.bottomMargin = dp(12)
+                layoutParams = lp
+            }
+            mainLayout.addView(taskHeader)
+
+            for (task in tasks) {
+                val taskId = task["id"] as String
+                val taskTitle = task["title"] as String
+                val taskDesc = task["description"] as String
+                val bonus = task["bonusMinutes"] as Int
+                val completed = task["completedToday"] as Boolean
+
+                val taskCard = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(14), dp(12), dp(14), dp(12))
+                    val bg = GradientDrawable().apply {
+                        setColor(if (completed) 0xFFC8E6C9.toInt() else 0xFFFFFFFF.toInt())
+                        cornerRadius = dp(12).toFloat()
+                        if (!completed) setStroke(dp(1), 0xFFE0E0E0.toInt())
+                    }
+                    background = bg
+                    val lp = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    )
+                    lp.bottomMargin = dp(8)
+                    layoutParams = lp
+                }
+
+                val taskInfo = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                }
+
+                val titleView = TextView(this).apply {
+                    text = if (completed) "✅ $taskTitle" else taskTitle
+                    textSize = 15f
+                    setTextColor(if (completed) 0xFF2E7D32.toInt() else 0xFF212121.toInt())
+                    typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                }
+                taskInfo.addView(titleView)
+
+                if (taskDesc.isNotBlank()) {
+                    val descView = TextView(this).apply {
+                        text = taskDesc
+                        textSize = 12f
+                        setTextColor(0xFF757575.toInt())
+                    }
+                    taskInfo.addView(descView)
+                }
+
+                val bonusLabel = TextView(this).apply {
+                    text = "+${bonus}min"
+                    textSize = 11f
+                    setTextColor(if (completed) 0xFF388E3C.toInt() else 0xFF9C27B0.toInt())
+                }
+                taskInfo.addView(bonusLabel)
+
+                taskCard.addView(taskInfo)
+
+                if (!completed) {
+                    val doneBtn = Button(this).apply {
+                        text = "Done ✓"
+                        textSize = 12f
+                        setTextColor(0xFFFFFFFF.toInt())
+                        val btnBg = GradientDrawable().apply {
+                            setColor(0xFF7B1FA2.toInt())
+                            cornerRadius = dp(20).toFloat()
+                        }
+                        background = btnBg
+                        setPadding(dp(14), dp(6), dp(14), dp(6))
+                        isAllCaps = false
+                        val lp = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        )
+                        lp.marginStart = dp(8)
+                        layoutParams = lp
+                    }
+                    doneBtn.setOnClickListener {
+                        showTaskCompletionPinDialog(taskId, taskTitle, bonus)
+                    }
+                    taskCard.addView(doneBtn)
+                }
+
+                mainLayout.addView(taskCard)
+            }
+        } else {
+            val noTasksText = TextView(this).apply {
+                text = "No tasks assigned yet.\nAsk your parent to add tasks in the app!"
+                textSize = 14f
+                setTextColor(0xFF7B1FA2.toInt())
+                gravity = Gravity.CENTER
+                val lp = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+                lp.bottomMargin = dp(16)
+                layoutParams = lp
+            }
+            mainLayout.addView(noTasksText)
+        }
+
+        // ── Go Home button ──
+        val homeBtn = Button(this).apply {
+            text = "← Go Back Home"
+            textSize = 14f
+            setTextColor(0xFF7B1FA2.toInt())
+            val bg = GradientDrawable().apply {
+                setColor(0x00000000)
+                cornerRadius = dp(24).toFloat()
+                setStroke(dp(1), 0xFF7B1FA2.toInt())
+            }
+            background = bg
+            setPadding(dp(20), dp(10), dp(20), dp(10))
+            isAllCaps = false
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            lp.gravity = Gravity.CENTER
+            lp.topMargin = dp(16)
+            layoutParams = lp
+        }
+        homeBtn.setOnClickListener { goHome() }
+        mainLayout.addView(homeBtn)
+
+        scrollView.addView(mainLayout)
+
+        // Initialize lateinit views to avoid crashes in onDestroy
+        appIconView = ImageView(this).apply { visibility = View.GONE }
+        appNameView = TextView(this).apply { visibility = View.GONE }
+        messageView = TextView(this).apply { visibility = View.GONE }
+        verifyButton = Button(this).apply { visibility = View.GONE }
+        goBackButton = Button(this).apply { visibility = View.GONE }
+        pinButton = Button(this).apply { visibility = View.GONE }
+        cameraPreview = PreviewView(this).apply { visibility = View.GONE }
+        cameraContainer = LinearLayout(this).apply { visibility = View.GONE }
+        pinContainer = LinearLayout(this).apply { visibility = View.GONE }
+        pinInput = EditText(this)
+        pinSubmitButton = Button(this).apply { visibility = View.GONE }
+        statusText = TextView(this).apply { visibility = View.GONE }
+        buddyImageView = ImageView(this).apply { visibility = View.GONE }
+        buddySpeechBubble = TextView(this).apply { visibility = View.GONE }
+
+        setContentView(scrollView)
+    }
+
+    private fun showTaskCompletionPinDialog(taskId: String, taskTitle: String, bonus: Int) {
+        val dialogLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(16), dp(24), dp(8))
+        }
+
+        val label = TextView(this).apply {
+            text = "Parent: verify \"$taskTitle\" is done"
+            textSize = 14f
+            setTextColor(0xFF424242.toInt())
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            lp.bottomMargin = dp(12)
+            layoutParams = lp
+        }
+        dialogLayout.addView(label)
+
+        val pinField = EditText(this).apply {
+            hint = "Enter PIN"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or
+                    android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            textSize = 20f
+            gravity = Gravity.CENTER
+        }
+        dialogLayout.addView(pinField)
+
+        val dialog = android.app.AlertDialog.Builder(this)
+            .setTitle("Parent Approval")
+            .setView(dialogLayout)
+            .setPositiveButton("Approve") { _, _ ->
+                val pin = pinField.text.toString()
+                val storedHash = prefs.getString(KEY_PIN_HASH, null)
+                val enteredHash = hashPin(pin)
+                if (pin.length >= 6 && storedHash != null && enteredHash == storedHash) {
+                    val taskMgr = TaskManager.getInstance(this)
+                    val earned = taskMgr.completeTask(taskId)
+                    if (earned > 0) {
+                        DailyTimerEngine.getInstance(this).addBonusMinutes(earned)
+                        Toast.makeText(this, "🎉 +${earned} minutes earned!", Toast.LENGTH_LONG).show()
+                    }
+                    // Rebuild the UI to reflect changes
+                    buildTimeLimitUI()
+                    // If limit is no longer reached, close overlay
+                    if (!DailyTimerEngine.getInstance(this).isLimitReached()) {
+                        Toast.makeText(this, "✓ You've earned more time!", Toast.LENGTH_SHORT).show()
+                        AppBlockingController.getInstance(this).onOverlayDismissed()
+                        finish()
+                    }
+                } else {
+                    Toast.makeText(this, "Incorrect PIN", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .create()
+        dialog.show()
     }
 
     // ─── Helper: dp to px ───

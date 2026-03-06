@@ -101,7 +101,17 @@ class AppBlockingController private constructor(private val context: Context) {
 
         // Recently verified?
         if (isRecentlyVerified(packageName)) {
+            // Check if daily limit reached — override verification
+            val timer = DailyTimerEngine.getInstance(context)
+            if (timer.isLimitReached()) {
+                Log.d(TAG, "Daily limit reached for $packageName — launching task overlay")
+                launchBlockingOverlay(packageName, timeLimitReached = true)
+                return true
+            }
+
             Log.d(TAG, "App $packageName was recently verified, allowing access")
+            // Start timer tracking for this verified session
+            timer.startTracking()
             startRecheckTimer(packageName)
             return false
         }
@@ -113,9 +123,12 @@ class AppBlockingController private constructor(private val context: Context) {
 
     // ─── Overlay lifecycle ────────────────────────────────────────
 
-    private fun launchBlockingOverlay(packageName: String) {
+    private fun launchBlockingOverlay(packageName: String, timeLimitReached: Boolean = false) {
         overlayActive = true
         overlayActiveTimestamp = System.currentTimeMillis()
+
+        // Stop timer tracking while overlay is showing
+        DailyTimerEngine.getInstance(context).stopTracking()
 
         // Log block event for analytics
         try {
@@ -129,6 +142,7 @@ class AppBlockingController private constructor(private val context: Context) {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             putExtra("blocked_package", packageName)
+            putExtra("time_limit_reached", timeLimitReached)
         }
         context.startActivity(intent)
     }
@@ -139,6 +153,8 @@ class AppBlockingController private constructor(private val context: Context) {
     fun onOverlayDismissed() {
         overlayActive = false
         overlayActiveTimestamp = 0L
+        // Stop timer tracking since user left the blocked app (going home)
+        DailyTimerEngine.getInstance(context).stopTracking()
         val blockedApps = getBlockedApps()
         if (blockedApps.contains(currentForegroundPackage) &&
             isRecentlyVerified(currentForegroundPackage)

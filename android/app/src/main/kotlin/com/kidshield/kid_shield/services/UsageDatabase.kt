@@ -25,7 +25,7 @@ class UsageDatabase private constructor(context: Context) :
     companion object {
         private const val TAG = "UsageDatabase"
         private const val DB_NAME = "usage.db"
-        private const val DB_VERSION = 1
+        private const val DB_VERSION = 2
 
         // Retain 90 days of history
         private const val RETENTION_DAYS = 90
@@ -86,17 +86,40 @@ class UsageDatabase private constructor(context: Context) :
             )
         """)
 
+        db.execSQL("""
+            CREATE TABLE task_completions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_id TEXT NOT NULL,
+                task_title TEXT NOT NULL,
+                bonus_minutes INTEGER NOT NULL,
+                completed_at INTEGER NOT NULL
+            )
+        """)
+
         // Indexes for common queries
         db.execSQL("CREATE INDEX idx_block_events_timestamp ON block_events(timestamp)")
         db.execSQL("CREATE INDEX idx_block_events_date ON block_events(app_package, timestamp)")
         db.execSQL("CREATE INDEX idx_streaks_start ON streaks(start_time)")
+        db.execSQL("CREATE INDEX idx_task_completions_date ON task_completions(completed_at)")
 
         Log.d(TAG, "Database created with all tables")
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // Future migrations go here
         Log.d(TAG, "Database upgrade from $oldVersion to $newVersion")
+        if (oldVersion < 2) {
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS task_completions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    task_id TEXT NOT NULL,
+                    task_title TEXT NOT NULL,
+                    bonus_minutes INTEGER NOT NULL,
+                    completed_at INTEGER NOT NULL
+                )
+            """)
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_task_completions_date ON task_completions(completed_at)")
+            Log.d(TAG, "Migration v1→v2: added task_completions table")
+        }
     }
 
     // ===================================================================
@@ -435,6 +458,47 @@ class UsageDatabase private constructor(context: Context) :
     }
 
     // ===================================================================
+    // Task Completions
+    // ===================================================================
+
+    /**
+     * Log a task completion for analytics.
+     */
+    fun logTaskCompletion(taskId: String, taskTitle: String, bonusMinutes: Int) {
+        val values = ContentValues().apply {
+            put("task_id", taskId)
+            put("task_title", taskTitle)
+            put("bonus_minutes", bonusMinutes)
+            put("completed_at", System.currentTimeMillis())
+        }
+        writableDatabase.insert("task_completions", null, values)
+        Log.d(TAG, "Logged task completion: $taskTitle (+${bonusMinutes}m)")
+    }
+
+    /**
+     * Get task completions for a given date (YYYY-MM-DD).
+     */
+    fun getTaskCompletionsForDate(date: String): List<Map<String, Any>> {
+        val startMs = dateToStartOfDayMs(date)
+        val endMs = startMs + 86_400_000L
+        val completions = mutableListOf<Map<String, Any>>()
+        readableDatabase.rawQuery(
+            "SELECT task_id, task_title, bonus_minutes, completed_at FROM task_completions WHERE completed_at >= ? AND completed_at < ? ORDER BY completed_at ASC",
+            arrayOf(startMs.toString(), endMs.toString())
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                completions.add(mapOf(
+                    "task_id" to cursor.getString(0),
+                    "task_title" to cursor.getString(1),
+                    "bonus_minutes" to cursor.getInt(2),
+                    "completed_at" to cursor.getLong(3)
+                ))
+            }
+        }
+        return completions
+    }
+
+    // ===================================================================
     // Maintenance
     // ===================================================================
 
@@ -452,9 +516,10 @@ class UsageDatabase private constructor(context: Context) :
         val streaksDeleted = db.delete("streaks", "start_time < ? AND end_time IS NOT NULL", arrayOf(cutoffMs.toString()))
         val aggDeleted = db.delete("daily_aggregates", "date < ?", arrayOf(cutoffDate))
         val stDeleted = db.delete("screen_time", "date < ?", arrayOf(cutoffDate))
+        val tcDeleted = db.delete("task_completions", "completed_at < ?", arrayOf(cutoffMs.toString()))
 
-        if (eventsDeleted + streaksDeleted + aggDeleted + stDeleted > 0) {
-            Log.d(TAG, "Pruned old data: events=$eventsDeleted streaks=$streaksDeleted agg=$aggDeleted screenTime=$stDeleted")
+        if (eventsDeleted + streaksDeleted + aggDeleted + stDeleted + tcDeleted > 0) {
+            Log.d(TAG, "Pruned old data: events=$eventsDeleted streaks=$streaksDeleted agg=$aggDeleted screenTime=$stDeleted tasks=$tcDeleted")
         }
     }
 

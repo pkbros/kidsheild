@@ -22,9 +22,11 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.kidshield.kid_shield.receivers.KidShieldDeviceAdminReceiver
 import com.kidshield.kid_shield.services.BuddyContentEngine
+import com.kidshield.kid_shield.services.DailyTimerEngine
 import com.kidshield.kid_shield.services.FaceRecognitionEngine
 import com.kidshield.kid_shield.services.KidShieldAccessibilityService
 import com.kidshield.kid_shield.services.KidShieldForegroundService
+import com.kidshield.kid_shield.services.TaskManager
 import com.kidshield.kid_shield.services.UsageTrackingEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -430,6 +432,127 @@ class PlatformChannelHandler(
                     "accessibilityEnabled" to a11yEnabled,
                     "pollingActive" to (KidShieldForegroundService.isRunning && usageGranted)
                 ))
+            }
+
+            // === Daily Timer ===
+            "getTimerStatus" -> {
+                val timer = DailyTimerEngine.getInstance(context)
+                result.success(timer.getStatus())
+            }
+            "setTimerEnabled" -> {
+                val enabled = call.argument<Boolean>("enabled") ?: false
+                val timer = DailyTimerEngine.getInstance(context)
+                timer.setEnabled(enabled)
+                result.success(true)
+            }
+            "setDailyLimit" -> {
+                val minutes = call.argument<Int>("minutes") ?: 30
+                val timer = DailyTimerEngine.getInstance(context)
+                timer.setDailyLimitMinutes(minutes)
+                result.success(true)
+            }
+            "getFirstOpenStatus" -> {
+                val timer = DailyTimerEngine.getInstance(context)
+                result.success(mapOf(
+                    "shownToday" to timer.hasShownFirstOpenToday(),
+                    "enabled" to timer.isEnabled()
+                ))
+            }
+            "markFirstOpenShown" -> {
+                val timer = DailyTimerEngine.getInstance(context)
+                timer.markFirstOpenShown()
+                result.success(true)
+            }
+
+            // === Earn-Time Tasks ===
+            "getTasks" -> {
+                val mgr = TaskManager.getInstance(context)
+                val tasks = mgr.getTasks().map { task ->
+                    mapOf(
+                        "id" to task.id,
+                        "title" to task.title,
+                        "description" to task.description,
+                        "bonusMinutes" to task.bonusMinutes
+                    )
+                }
+                result.success(tasks)
+            }
+            "addTask" -> {
+                val title = call.argument<String>("title") ?: ""
+                val description = call.argument<String>("description") ?: ""
+                val bonusMinutes = call.argument<Int>("bonusMinutes") ?: 0
+                if (title.isBlank()) {
+                    result.error("INVALID", "Task title is required", null)
+                    return
+                }
+                val mgr = TaskManager.getInstance(context)
+                val task = mgr.addTask(title, description, bonusMinutes)
+                result.success(mapOf(
+                    "id" to task.id,
+                    "title" to task.title,
+                    "description" to task.description,
+                    "bonusMinutes" to task.bonusMinutes
+                ))
+            }
+            "removeTask" -> {
+                val taskId = call.argument<String>("taskId") ?: ""
+                val mgr = TaskManager.getInstance(context)
+                mgr.removeTask(taskId)
+                result.success(true)
+            }
+            "updateTask" -> {
+                val taskId = call.argument<String>("taskId") ?: ""
+                val title = call.argument<String>("title") ?: ""
+                val description = call.argument<String>("description") ?: ""
+                val bonusMinutes = call.argument<Int>("bonusMinutes") ?: 15
+                val mgr = TaskManager.getInstance(context)
+                mgr.updateTask(taskId, title, description, bonusMinutes)
+                result.success(true)
+            }
+            "getTaskStatus" -> {
+                val mgr = TaskManager.getInstance(context)
+                result.success(mapOf(
+                    "tasks" to mgr.getTodayTaskStatus(),
+                    "earnedMinutes" to mgr.getTodayEarnedMinutes(),
+                    "pendingCount" to mgr.getPendingTaskCount()
+                ))
+            }
+            "completeTask" -> {
+                val taskId = call.argument<String>("taskId") ?: ""
+                val pin = call.argument<String>("pin") ?: ""
+
+                // Verify parent PIN first
+                val storedHash = prefs.getString("pin_hash", null)
+                val enteredHash = hashPin(pin)
+                if (storedHash == null || enteredHash != storedHash) {
+                    result.success(mapOf(
+                        "success" to false,
+                        "error" to "Invalid PIN"
+                    ))
+                    return
+                }
+
+                val mgr = TaskManager.getInstance(context)
+                val bonusEarned = mgr.completeTask(taskId)
+                if (bonusEarned > 0) {
+                    // Add bonus to daily timer
+                    val timer = DailyTimerEngine.getInstance(context)
+                    timer.addBonusMinutes(bonusEarned)
+                }
+                result.success(mapOf(
+                    "success" to true,
+                    "bonusMinutes" to bonusEarned
+                ))
+            }
+            "setBonusMinutesPerTask" -> {
+                val minutes = call.argument<Int>("minutes") ?: 15
+                val mgr = TaskManager.getInstance(context)
+                mgr.setBonusMinutesPerTask(minutes)
+                result.success(true)
+            }
+            "getBonusMinutesPerTask" -> {
+                val mgr = TaskManager.getInstance(context)
+                result.success(mgr.getBonusMinutesPerTask())
             }
 
             else -> result.notImplemented()

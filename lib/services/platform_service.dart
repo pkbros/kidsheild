@@ -297,4 +297,109 @@ class PlatformService {
     if (result == null) return {};
     return Map<String, dynamic>.from(result as Map);
   }
+
+  // ─── Daily Timer ───
+
+  /// Get full timer status map.
+  static Future<Map<String, dynamic>> getTimerStatus() async {
+    final result = await _channel.invokeMethod('getTimerStatus');
+    if (result == null) return {};
+    return Map<String, dynamic>.from(result as Map);
+  }
+
+  /// Enable or disable the daily timer.
+  static Future<void> setTimerEnabled(bool enabled) async {
+    await _channel.invokeMethod('setTimerEnabled', {'enabled': enabled});
+  }
+
+  /// Set daily limit in minutes.
+  static Future<void> setDailyLimit(int minutes) async {
+    await _channel.invokeMethod('setDailyLimit', {'minutes': minutes});
+  }
+
+  /// Get first-open-of-day status.
+  static Future<Map<String, dynamic>> getFirstOpenStatus() async {
+    final result = await _channel.invokeMethod('getFirstOpenStatus');
+    if (result == null) return {};
+    return Map<String, dynamic>.from(result as Map);
+  }
+
+  /// Mark first open video as shown today.
+  static Future<void> markFirstOpenShown() async {
+    await _channel.invokeMethod('markFirstOpenShown');
+  }
+
+  // ─── Earn-Time Tasks ───
+
+  /// Get all parent-defined tasks.
+  static Future<List<Map<String, dynamic>>> getTasks() async {
+    final result = await _channel.invokeMethod('getTasks');
+    if (result == null) return [];
+    return (result as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  /// Add a new task.
+  static Future<Map<String, dynamic>> addTask({
+    required String title,
+    String description = '',
+    int bonusMinutes = 0,
+  }) async {
+    final result = await _channel.invokeMethod('addTask', {
+      'title': title,
+      'description': description,
+      'bonusMinutes': bonusMinutes,
+    });
+    return Map<String, dynamic>.from(result as Map);
+  }
+
+  /// Remove a task by ID.
+  static Future<void> removeTask(String taskId) async {
+    await _channel.invokeMethod('removeTask', {'taskId': taskId});
+  }
+
+  /// Update an existing task.
+  static Future<void> updateTask({
+    required String taskId,
+    required String title,
+    String description = '',
+    int bonusMinutes = 15,
+  }) async {
+    await _channel.invokeMethod('updateTask', {
+      'taskId': taskId,
+      'title': title,
+      'description': description,
+      'bonusMinutes': bonusMinutes,
+    });
+  }
+
+  /// Get task status for today (tasks with completion state, earned minutes, pending count).
+  static Future<Map<String, dynamic>> getTaskStatus() async {
+    final result = await _channel.invokeMethod('getTaskStatus');
+    if (result == null) return {};
+    return Map<String, dynamic>.from(result as Map);
+  }
+
+  /// Complete a task (requires parent PIN verification).
+  static Future<Map<String, dynamic>> completeTask({
+    required String taskId,
+    required String pin,
+  }) async {
+    final result = await _channel.invokeMethod('completeTask', {
+      'taskId': taskId,
+      'pin': pin,
+    });
+    return Map<String, dynamic>.from(result as Map);
+  }
+
+  /// Set default bonus minutes per task.
+  static Future<void> setBonusMinutesPerTask(int minutes) async {
+    await _channel.invokeMethod('setBonusMinutesPerTask', {'minutes': minutes});
+  }
+
+  /// Get default bonus minutes per task.
+  static Future<int> getBonusMinutesPerTask() async {
+    return await _channel.invokeMethod('getBonusMinutesPerTask') ?? 15;
+  }
 }
