@@ -62,7 +62,7 @@ class DailyTimerEngine private constructor(private val context: Context) {
 
     // ─── Configuration ────────────────────────────────────
 
-    fun isEnabled(): Boolean = prefs.getBoolean(KEY_TIMER_ENABLED, false)
+    fun isEnabled(): Boolean = prefs.getBoolean(KEY_TIMER_ENABLED, true)
 
     fun setEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_TIMER_ENABLED, enabled).apply()

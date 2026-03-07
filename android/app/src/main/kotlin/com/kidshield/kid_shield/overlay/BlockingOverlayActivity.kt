@@ -1,5 +1,6 @@
 package com.kidshield.kid_shield.overlay
 
+import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -100,6 +101,9 @@ class BlockingOverlayActivity : AppCompatActivity() {
     // Track whether this is a time-limit overlay
     private var isTimeLimitMode = false
 
+    // Earn-time overlay phase
+    private var earnTimePhase = ""
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -109,12 +113,17 @@ class BlockingOverlayActivity : AppCompatActivity() {
         cameraExecutor = Executors.newSingleThreadExecutor()
 
         blockedPackage = intent.getStringExtra("blocked_package") ?: ""
-        isTimeLimitMode = intent.getBooleanExtra("time_limit_reached", false)
 
-        if (isTimeLimitMode) {
-            buildTimeLimitUI()
-            Log.d(TAG, "Time-limit overlay launched for: $blockedPackage")
+        val timer = DailyTimerEngine.getInstance(this)
+
+        if (timer.isEnabled()) {
+            // Earn-time phase system
+            earnTimePhase = determinePhase()
+            isTimeLimitMode = true
+            buildEarnTimeUI()
+            Log.d(TAG, "Earn-time overlay ($earnTimePhase) launched for: $blockedPackage")
         } else {
+            // Legacy overlay modes (video/buddy/classic)
             overlayMode = buddyEngine.getOverlayMode()
             isMascotMode = overlayMode != BuddyContentEngine.MODE_CLASSIC
 
@@ -131,288 +140,567 @@ class BlockingOverlayActivity : AppCompatActivity() {
         }
     }
 
-    // ─── Time Limit / Earn-Time Task Overlay ───
+    // ─── Earn-Time Phase System ───
 
-    private fun buildTimeLimitUI() {
+    /**
+     * Determine which earn-time overlay phase to show:
+     * - "time_available": time remaining → Proceed + parent dot
+     * - "time_up":        time = 0, tasks pending → Verify Tasks + parent dot
+     * - "fully_blocked":  time = 0, no tasks left → classic block + parent dot only
+     */
+    private fun determinePhase(): String {
         val timer = DailyTimerEngine.getInstance(this)
-        val taskMgr = TaskManager.getInstance(this)
-        val tasks = taskMgr.getTodayTaskStatus()
-        val pendingCount = taskMgr.getPendingTaskCount()
-        val earnedMinutes = taskMgr.getTodayEarnedMinutes()
-        val usedMinutes = timer.getUsedTodayMinutes()
-        val limitMinutes = timer.getEffectiveLimitMinutes()
+        val remaining = timer.getRemainingMinutes()
+        val pendingTasks = TaskManager.getInstance(this).getPendingTaskCount()
 
-        val scrollView = ScrollView(this).apply {
-            isFillViewport = true
-            setBackgroundColor(0xFFF3E5F5.toInt()) // light purple
+        return when {
+            remaining > 0 -> "time_available"
+            pendingTasks > 0 -> "time_up"
+            else -> "fully_blocked"
+        }
+    }
+
+    /**
+     * Build the full earn-time overlay UI.
+     * All phases use a video background + speech bubble + phase-specific buttons + parent dot.
+     */
+    private fun buildEarnTimeUI() {
+        val timer = DailyTimerEngine.getInstance(this)
+        val remaining = timer.getRemainingMinutes()
+        val bonus = timer.getBonusTodayMinutes()
+
+        val root = FrameLayout(this).apply {
+            setBackgroundColor(0xFF000000.toInt())
         }
 
-        val mainLayout = LinearLayout(this).apply {
+        // ── Layer 1: Full-screen video TextureView ──
+        videoTextureView = TextureView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        root.addView(videoTextureView)
+
+        videoTextureView!!.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+            override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
+                initVideoPlayer(Surface(surface))
+            }
+            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, w: Int, h: Int) {}
+            override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+                releaseVideoPlayer()
+                return true
+            }
+            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
+        }
+
+        // ── Layer 2: Top scrim with app info ──
+        val topScrim = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(16), dp(40), dp(16), dp(16))
+            val gradient = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(0xBB000000.toInt(), 0x00000000)
+            )
+            background = gradient
+            val lp = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP
+            )
+            layoutParams = lp
+        }
+
+        appIconView = ImageView(this).apply {
+            val lp = LinearLayout.LayoutParams(dp(32), dp(32))
+            lp.marginEnd = dp(10)
+            layoutParams = lp
+        }
+        topScrim.addView(appIconView)
+
+        val appTextCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(24), dp(40), dp(24), dp(24))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
-        // ── Buddy image ──
-        val buddyImg = ImageView(this).apply {
-            val lp = LinearLayout.LayoutParams(dp(120), dp(120))
+        appNameView = TextView(this).apply {
+            textSize = 15f
+            setTextColor(0xDDFFFFFF.toInt())
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        }
+        appTextCol.addView(appNameView)
+
+        messageView = TextView(this).apply {
+            text = "KidShield"
+            textSize = 12f
+            setTextColor(0x99FFFFFF.toInt())
+        }
+        appTextCol.addView(messageView)
+        topScrim.addView(appTextCol)
+        root.addView(topScrim)
+
+        // ── Layer 3: Parent verification dot (tiny, top-right corner) ──
+        val parentDot = View(this).apply {
+            val dotSize = dp(14)
+            val dotBg = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(0x33FFFFFF.toInt())
+            }
+            background = dotBg
+            val lp = FrameLayout.LayoutParams(dotSize, dotSize, Gravity.TOP or Gravity.END)
+            lp.topMargin = dp(48)
+            lp.marginEnd = dp(16)
+            layoutParams = lp
+            contentDescription = "Parent access"
+        }
+        parentDot.setOnClickListener { startParentVerification() }
+        root.addView(parentDot)
+
+        // ── Layer 4: Status text (for camera feedback) ──
+        statusText = TextView(this).apply {
+            textSize = 13f
+            setTextColor(0xFFFF8A65.toInt())
+            gravity = Gravity.CENTER
+            visibility = View.GONE
+            setPadding(dp(16), dp(8), dp(16), dp(8))
+            val statusBg = GradientDrawable().apply {
+                setColor(0xCC000000.toInt())
+                cornerRadius = dp(12).toFloat()
+            }
+            background = statusBg
+            val lp = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            )
+            lp.bottomMargin = dp(200)
+            layoutParams = lp
+        }
+        root.addView(statusText)
+
+        // ── Layer 5: Camera preview container (overlaid for parent verification) ──
+        cameraContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            visibility = View.GONE
+            val lp = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER
+            )
+            layoutParams = lp
+        }
+        cameraPreview = PreviewView(this).apply {
+            val lp = LinearLayout.LayoutParams(dp(200), dp(200))
+            lp.gravity = Gravity.CENTER
+            layoutParams = lp
+            clipToOutline = true
+            outlineProvider = object : android.view.ViewOutlineProvider() {
+                override fun getOutline(view: View, outline: android.graphics.Outline) {
+                    outline.setOval(0, 0, view.width, view.height)
+                }
+            }
+        }
+        cameraContainer.addView(cameraPreview)
+        root.addView(cameraContainer)
+
+        // ── Layer 6: PIN container (overlaid for parent verification fallback) ──
+        pinContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            visibility = View.GONE
+            setPadding(dp(32), dp(20), dp(32), dp(20))
+            val pinBg = GradientDrawable().apply {
+                setColor(0xDD000000.toInt())
+                cornerRadius = dp(20).toFloat()
+            }
+            background = pinBg
+            val lp = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER
+            )
+            lp.marginStart = dp(32)
+            lp.marginEnd = dp(32)
+            layoutParams = lp
+        }
+        val pinLabel = TextView(this).apply {
+            text = "Enter Parent PIN"
+            textSize = 16f
+            setTextColor(0xFFFFFFFF.toInt())
+            gravity = Gravity.CENTER
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            lp.bottomMargin = dp(12)
+            layoutParams = lp
+        }
+        pinContainer.addView(pinLabel)
+        pinInput = EditText(this).apply {
+            hint = "PIN (6+ digits)"
+            setHintTextColor(0x77FFFFFF.toInt())
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or
+                    android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            gravity = Gravity.CENTER
+            textSize = 22f
+            setTextColor(0xFFFFFFFF.toInt())
+            val bgShape = GradientDrawable().apply {
+                setColor(0x33FFFFFF.toInt())
+                cornerRadius = dp(12).toFloat()
+                setStroke(dp(1), 0x55FFFFFF.toInt())
+            }
+            background = bgShape
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+            val lp = LinearLayout.LayoutParams(dp(220), LinearLayout.LayoutParams.WRAP_CONTENT)
             lp.gravity = Gravity.CENTER
             lp.bottomMargin = dp(12)
             layoutParams = lp
-            scaleType = ImageView.ScaleType.FIT_CENTER
-            setImageResource(R.drawable.buddy_thinking)
         }
-        mainLayout.addView(buddyImg)
-
-        // ── Time's up message ──
-        val titleText = TextView(this).apply {
-            text = "⏰ Time's Up!"
-            textSize = 24f
-            setTextColor(0xFF6A1B9A.toInt())
-            gravity = Gravity.CENTER
-            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
-            val lp = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            lp.bottomMargin = dp(8)
-            layoutParams = lp
-        }
-        mainLayout.addView(titleText)
-
-        // ── Usage summary ──
-        val summaryText = TextView(this).apply {
-            text = "You've used $usedMinutes of $limitMinutes minutes today" +
-                    if (earnedMinutes > 0) "\n(+$earnedMinutes min earned from tasks!)" else ""
-            textSize = 14f
-            setTextColor(0xFF7B1FA2.toInt())
-            gravity = Gravity.CENTER
-            val lp = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            lp.bottomMargin = dp(20)
-            layoutParams = lp
-        }
-        mainLayout.addView(summaryText)
-
-        // ── Task list ──
-        if (tasks.isNotEmpty()) {
-            val taskHeader = TextView(this).apply {
-                text = if (pendingCount > 0) "🌟 Complete a task to earn more time!" else "✅ All tasks completed!"
-                textSize = 16f
-                setTextColor(0xFF4A148C.toInt())
-                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-                val lp = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                )
-                lp.bottomMargin = dp(12)
-                layoutParams = lp
-            }
-            mainLayout.addView(taskHeader)
-
-            for (task in tasks) {
-                val taskId = task["id"] as String
-                val taskTitle = task["title"] as String
-                val taskDesc = task["description"] as String
-                val bonus = task["bonusMinutes"] as Int
-                val completed = task["completedToday"] as Boolean
-
-                val taskCard = LinearLayout(this).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER_VERTICAL
-                    setPadding(dp(14), dp(12), dp(14), dp(12))
-                    val bg = GradientDrawable().apply {
-                        setColor(if (completed) 0xFFC8E6C9.toInt() else 0xFFFFFFFF.toInt())
-                        cornerRadius = dp(12).toFloat()
-                        if (!completed) setStroke(dp(1), 0xFFE0E0E0.toInt())
-                    }
-                    background = bg
-                    val lp = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                    )
-                    lp.bottomMargin = dp(8)
-                    layoutParams = lp
-                }
-
-                val taskInfo = LinearLayout(this).apply {
-                    orientation = LinearLayout.VERTICAL
-                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                }
-
-                val titleView = TextView(this).apply {
-                    text = if (completed) "✅ $taskTitle" else taskTitle
-                    textSize = 15f
-                    setTextColor(if (completed) 0xFF2E7D32.toInt() else 0xFF212121.toInt())
-                    typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-                }
-                taskInfo.addView(titleView)
-
-                if (taskDesc.isNotBlank()) {
-                    val descView = TextView(this).apply {
-                        text = taskDesc
-                        textSize = 12f
-                        setTextColor(0xFF757575.toInt())
-                    }
-                    taskInfo.addView(descView)
-                }
-
-                val bonusLabel = TextView(this).apply {
-                    text = "+${bonus}min"
-                    textSize = 11f
-                    setTextColor(if (completed) 0xFF388E3C.toInt() else 0xFF9C27B0.toInt())
-                }
-                taskInfo.addView(bonusLabel)
-
-                taskCard.addView(taskInfo)
-
-                if (!completed) {
-                    val doneBtn = Button(this).apply {
-                        text = "Done ✓"
-                        textSize = 12f
-                        setTextColor(0xFFFFFFFF.toInt())
-                        val btnBg = GradientDrawable().apply {
-                            setColor(0xFF7B1FA2.toInt())
-                            cornerRadius = dp(20).toFloat()
-                        }
-                        background = btnBg
-                        setPadding(dp(14), dp(6), dp(14), dp(6))
-                        isAllCaps = false
-                        val lp = LinearLayout.LayoutParams(
-                            LinearLayout.LayoutParams.WRAP_CONTENT,
-                            LinearLayout.LayoutParams.WRAP_CONTENT
-                        )
-                        lp.marginStart = dp(8)
-                        layoutParams = lp
-                    }
-                    doneBtn.setOnClickListener {
-                        showTaskCompletionPinDialog(taskId, taskTitle, bonus)
-                    }
-                    taskCard.addView(doneBtn)
-                }
-
-                mainLayout.addView(taskCard)
-            }
-        } else {
-            val noTasksText = TextView(this).apply {
-                text = "No tasks assigned yet.\nAsk your parent to add tasks in the app!"
-                textSize = 14f
-                setTextColor(0xFF7B1FA2.toInt())
-                gravity = Gravity.CENTER
-                val lp = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                )
-                lp.bottomMargin = dp(16)
-                layoutParams = lp
-            }
-            mainLayout.addView(noTasksText)
-        }
-
-        // ── Go Home button ──
-        val homeBtn = Button(this).apply {
-            text = "← Go Back Home"
-            textSize = 14f
-            setTextColor(0xFF7B1FA2.toInt())
-            val bg = GradientDrawable().apply {
-                setColor(0x00000000)
+        pinContainer.addView(pinInput)
+        pinSubmitButton = Button(this).apply {
+            text = "Submit PIN"
+            textSize = 15f
+            setTextColor(0xFFFFFFFF.toInt())
+            val bgShape = GradientDrawable().apply {
+                setColor(0xFF66BB6A.toInt())
                 cornerRadius = dp(24).toFloat()
-                setStroke(dp(1), 0xFF7B1FA2.toInt())
             }
-            background = bg
-            setPadding(dp(20), dp(10), dp(20), dp(10))
+            background = bgShape
+            setPadding(dp(24), dp(10), dp(24), dp(10))
             isAllCaps = false
             val lp = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
             lp.gravity = Gravity.CENTER
-            lp.topMargin = dp(16)
             layoutParams = lp
         }
-        homeBtn.setOnClickListener { goHome() }
-        mainLayout.addView(homeBtn)
+        pinContainer.addView(pinSubmitButton)
+        root.addView(pinContainer)
 
-        scrollView.addView(mainLayout)
-
-        // Initialize lateinit views to avoid crashes in onDestroy
-        appIconView = ImageView(this).apply { visibility = View.GONE }
-        appNameView = TextView(this).apply { visibility = View.GONE }
-        messageView = TextView(this).apply { visibility = View.GONE }
-        verifyButton = Button(this).apply { visibility = View.GONE }
-        goBackButton = Button(this).apply { visibility = View.GONE }
-        pinButton = Button(this).apply { visibility = View.GONE }
-        cameraPreview = PreviewView(this).apply { visibility = View.GONE }
-        cameraContainer = LinearLayout(this).apply { visibility = View.GONE }
-        pinContainer = LinearLayout(this).apply { visibility = View.GONE }
-        pinInput = EditText(this)
-        pinSubmitButton = Button(this).apply { visibility = View.GONE }
-        statusText = TextView(this).apply { visibility = View.GONE }
-        buddyImageView = ImageView(this).apply { visibility = View.GONE }
-        buddySpeechBubble = TextView(this).apply { visibility = View.GONE }
-
-        setContentView(scrollView)
-    }
-
-    private fun showTaskCompletionPinDialog(taskId: String, taskTitle: String, bonus: Int) {
-        val dialogLayout = LinearLayout(this).apply {
+        // ── Layer 7: Bottom section — speech bubble + action buttons ──
+        val bottomSection = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(24), dp(16), dp(24), dp(8))
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(16), dp(48), dp(16), dp(24))
+            val gradient = GradientDrawable(
+                GradientDrawable.Orientation.BOTTOM_TOP,
+                intArrayOf(0xCC000000.toInt(), 0x00000000)
+            )
+            background = gradient
+            val lp = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM
+            )
+            layoutParams = lp
         }
 
-        val label = TextView(this).apply {
-            text = "Parent: verify \"$taskTitle\" is done"
-            textSize = 14f
-            setTextColor(0xFF424242.toInt())
+        // Speech bubble with phase-appropriate message
+        val bubbleText = when (earnTimePhase) {
+            "time_available" -> {
+                if (bonus > 0) {
+                    "🎉 You earned $remaining more minutes! Use them wisely!"
+                } else {
+                    "You have $remaining minutes of allotted time. Please use wisely!"
+                }
+            }
+            "time_up" -> "You have consumed your daily allowed time.\nPlease verify your tasks from Mummy-Papa!"
+            "fully_blocked" -> "All your time is used up!\nPut down the phone and go play outside! 🌳⚽"
+            else -> ""
+        }
+
+        videoBuddyBubble = TextView(this).apply {
+            text = bubbleText
+            textSize = 16f
+            setTextColor(0xFFFFFFFF.toInt())
+            gravity = Gravity.CENTER
+            typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+            setPadding(dp(20), dp(14), dp(20), dp(14))
+            val bubbleBg = GradientDrawable().apply {
+                setColor(0x66000000.toInt())
+                cornerRadius = dp(16).toFloat()
+            }
+            background = bubbleBg
             val lp = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
-            lp.bottomMargin = dp(12)
+            lp.bottomMargin = dp(16)
             layoutParams = lp
         }
-        dialogLayout.addView(label)
+        bottomSection.addView(videoBuddyBubble)
 
-        val pinField = EditText(this).apply {
-            hint = "Enter PIN"
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER or
-                    android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD
-            textSize = 20f
-            gravity = Gravity.CENTER
+        // Phase-specific action button
+        when (earnTimePhase) {
+            "time_available" -> {
+                // Big "Proceed" button — kid enters app, timer starts
+                val proceedBtn = Button(this).apply {
+                    text = "Proceed ▶"
+                    textSize = 18f
+                    setTextColor(0xFFFFFFFF.toInt())
+                    val bgShape = GradientDrawable().apply {
+                        setColor(0xFF7B1FA2.toInt())
+                        cornerRadius = dp(28).toFloat()
+                    }
+                    background = bgShape
+                    setPadding(dp(32), dp(14), dp(32), dp(14))
+                    isAllCaps = false
+                    val lp = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    )
+                    lp.bottomMargin = dp(10)
+                    layoutParams = lp
+                }
+                proceedBtn.setOnClickListener { onKidProceed() }
+                bottomSection.addView(proceedBtn)
+            }
+            "time_up" -> {
+                // Big "Verify Tasks" button — redirect to Flutter app task screen
+                val verifyTasksBtn = Button(this).apply {
+                    text = "📋 Verify Tasks"
+                    textSize = 18f
+                    setTextColor(0xFFFFFFFF.toInt())
+                    val bgShape = GradientDrawable().apply {
+                        setColor(0xFF388E3C.toInt())
+                        cornerRadius = dp(28).toFloat()
+                    }
+                    background = bgShape
+                    setPadding(dp(32), dp(14), dp(32), dp(14))
+                    isAllCaps = false
+                    val lp = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    )
+                    lp.bottomMargin = dp(10)
+                    layoutParams = lp
+                }
+                verifyTasksBtn.setOnClickListener { onVerifyTasks() }
+                bottomSection.addView(verifyTasksBtn)
+            }
+            "fully_blocked" -> {
+                // No action button — only parent dot and go-back
+            }
         }
-        dialogLayout.addView(pinField)
 
-        val dialog = android.app.AlertDialog.Builder(this)
-            .setTitle("Parent Approval")
-            .setView(dialogLayout)
-            .setPositiveButton("Approve") { _, _ ->
-                val pin = pinField.text.toString()
-                val storedHash = prefs.getString(KEY_PIN_HASH, null)
-                val enteredHash = hashPin(pin)
-                if (pin.length >= 6 && storedHash != null && enteredHash == storedHash) {
-                    val taskMgr = TaskManager.getInstance(this)
-                    val earned = taskMgr.completeTask(taskId)
-                    if (earned > 0) {
-                        DailyTimerEngine.getInstance(this).addBonusMinutes(earned)
-                        Toast.makeText(this, "🎉 +${earned} minutes earned!", Toast.LENGTH_LONG).show()
+        // Go Back Home button (always present)
+        val homeBtn = Button(this).apply {
+            text = "← Go Back Home"
+            textSize = 13f
+            setTextColor(0xBBFFFFFF.toInt())
+            val bgShape = GradientDrawable().apply {
+                setColor(0x00000000)
+            }
+            background = bgShape
+            isAllCaps = false
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            lp.gravity = Gravity.CENTER
+            layoutParams = lp
+        }
+        homeBtn.setOnClickListener { goHome() }
+        bottomSection.addView(homeBtn)
+
+        root.addView(bottomSection)
+
+        // Initialize unused views to avoid lateinit crashes
+        verifyButton = Button(this).apply { visibility = View.GONE }
+        goBackButton = Button(this).apply { visibility = View.GONE }
+        pinButton = Button(this).apply { visibility = View.GONE }
+        buddyImageView = ImageView(this).apply { visibility = View.GONE }
+        buddySpeechBubble = TextView(this).apply { visibility = View.GONE }
+
+        setContentView(root)
+        setupAppInfo()
+
+        // Wire PIN submit (for parent verification fallback)
+        pinSubmitButton.setOnClickListener { verifyPinParent() }
+    }
+
+    // ─── Earn-Time Actions ───
+
+    /**
+     * Kid clicks "Proceed" — record verification, start timer, allow access.
+     */
+    private fun onKidProceed() {
+        // Record verification so the app won't be re-blocked immediately
+        recordVerification(blockedPackage)
+
+        // Record outcome for analytics
+        try {
+            val tracker = UsageTrackingEngine.getInstance(this)
+            tracker.recordBlockOutcome("kid_proceed")
+            tracker.onOverlayDismissed()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to record kid_proceed outcome", e)
+        }
+
+        // Set kid session and start timer
+        val ctrl = AppBlockingController.getInstance(this)
+        ctrl.setKidSessionActive()
+        ctrl.onOverlayDismissed()
+
+        Toast.makeText(this, "⏱ Timer started", Toast.LENGTH_SHORT).show()
+        finish()
+    }
+
+    /**
+     * Kid clicks "Verify Tasks" — open the Flutter app's task verification screen.
+     */
+    private fun onVerifyTasks() {
+        try {
+            val tracker = UsageTrackingEngine.getInstance(this)
+            tracker.recordBlockOutcome("verify_tasks")
+            tracker.onOverlayDismissed()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to record verify_tasks outcome", e)
+        }
+
+        // Launch KidShield Flutter app routed to daily-budget/task-verification screen
+        val flutterIntent = Intent(this, com.kidshield.kid_shield.MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            putExtra("route", "/daily-budget")
+        }
+        startActivity(flutterIntent)
+
+        val ctrl = AppBlockingController.getInstance(this)
+        ctrl.onOverlayDismissed()
+        ctrl.resetLastDetected()
+        finish()
+    }
+
+    /**
+     * Parent taps the tiny dot — start face verification for parent bypass.
+     */
+    private fun startParentVerification() {
+        faceAttempts++
+        pauseVideo()
+        videoBuddyBubble?.visibility = View.GONE
+        cameraContainer.visibility = View.VISIBLE
+        statusText.visibility = View.VISIBLE
+        statusText.text = "Verifying parent… (Attempt $faceAttempts/$MAX_FACE_ATTEMPTS)"
+
+        startCamera()
+
+        // Auto-capture after 2 seconds
+        object : CountDownTimer(2500, 2500) {
+            override fun onTick(millisUntilFinished: Long) {}
+            override fun onFinish() {
+                captureAndVerifyParent()
+            }
+        }.start()
+    }
+
+    private fun captureAndVerifyParent() {
+        imageCapture?.takePicture(
+            ContextCompat.getMainExecutor(this),
+            object : ImageCapture.OnImageCapturedCallback() {
+                override fun onCaptureSuccess(imageProxy: ImageProxy) {
+                    val rotation = imageProxy.imageInfo.rotationDegrees
+                    val bitmap = imageProxyToBitmap(imageProxy, rotation)
+                    imageProxy.close()
+                    if (bitmap != null) {
+                        performParentFaceVerification(bitmap)
+                    } else {
+                        onParentVerificationFailed("Could not capture image")
                     }
-                    // Rebuild the UI to reflect changes
-                    buildTimeLimitUI()
-                    // If limit is no longer reached, close overlay
-                    if (!DailyTimerEngine.getInstance(this).isLimitReached()) {
-                        Toast.makeText(this, "✓ You've earned more time!", Toast.LENGTH_SHORT).show()
-                        AppBlockingController.getInstance(this).onOverlayDismissed()
-                        finish()
-                    }
-                } else {
-                    Toast.makeText(this, "Incorrect PIN", Toast.LENGTH_SHORT).show()
+                }
+                override fun onError(exception: ImageCaptureException) {
+                    Log.e(TAG, "Capture failed", exception)
+                    onParentVerificationFailed("Capture failed")
                 }
             }
-            .setNegativeButton("Cancel", null)
-            .create()
-        dialog.show()
+        )
+    }
+
+    private fun performParentFaceVerification(bitmap: Bitmap) {
+        val registeredEmbeddings = loadRegisteredEmbeddings()
+        if (registeredEmbeddings.isEmpty()) {
+            onParentVerificationFailed("No faces registered")
+            return
+        }
+        faceEngine.processFrame(bitmap) { embedding ->
+            runOnUiThread {
+                if (embedding != null) {
+                    val (matchIndex, similarity) = faceEngine.matchAgainstRegistered(
+                        embedding, registeredEmbeddings
+                    )
+                    if (matchIndex >= 0) {
+                        Log.d(TAG, "Parent face matched #$matchIndex (similarity: $similarity)")
+                        onParentVerified()
+                    } else {
+                        onParentVerificationFailed("Face not recognized")
+                    }
+                } else {
+                    onParentVerificationFailed("No face detected")
+                }
+            }
+        }
+    }
+
+    private fun onParentVerified() {
+        recordVerification(blockedPackage)
+
+        try {
+            val tracker = UsageTrackingEngine.getInstance(this)
+            tracker.recordBlockOutcome("parent_face_verified")
+            tracker.onOverlayDismissed()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to record parent outcome", e)
+        }
+
+        stopCamera()
+
+        // Set parent session — no timer consumed
+        val ctrl = AppBlockingController.getInstance(this)
+        ctrl.setParentSessionActive()
+        ctrl.onOverlayDismissed()
+
+        Toast.makeText(this, "✓ Parent access granted", Toast.LENGTH_SHORT).show()
+        finish()
+    }
+
+    private fun onParentVerificationFailed(reason: String) {
+        statusText.text = "$reason — Attempt $faceAttempts/$MAX_FACE_ATTEMPTS"
+
+        if (faceAttempts >= MAX_FACE_ATTEMPTS) {
+            // Show PIN fallback
+            stopCamera()
+            cameraContainer.visibility = View.GONE
+            pinContainer.visibility = View.VISIBLE
+            statusText.text = "Face not recognized. Use PIN instead."
+        } else {
+            // Allow retry — show a retry button
+            stopCamera()
+            cameraContainer.visibility = View.GONE
+            statusText.text = "$reason — tap the dot to try again"
+            resumeVideo()
+            videoBuddyBubble?.visibility = View.VISIBLE
+        }
+    }
+
+    /**
+     * PIN verification for parent bypass (fallback after face fail).
+     */
+    private fun verifyPinParent() {
+        val enteredPin = pinInput.text.toString()
+        if (enteredPin.length < 6) {
+            Toast.makeText(this, "PIN must be at least 6 digits", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val storedHash = prefs.getString(KEY_PIN_HASH, null)
+        val enteredHash = hashPin(enteredPin)
+        if (enteredHash == storedHash) {
+            onParentVerified()
+        } else {
+            Toast.makeText(this, "Incorrect PIN", Toast.LENGTH_SHORT).show()
+            pinInput.text.clear()
+        }
     }
 
     // ─── Helper: dp to px ───
@@ -1600,9 +1888,9 @@ class BlockingOverlayActivity : AppCompatActivity() {
         }
 
         // Navigate to home screen instead of back to blocked app
-        val homeIntent = android.content.Intent(android.content.Intent.ACTION_MAIN).apply {
-            addCategory(android.content.Intent.CATEGORY_HOME)
-            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+        val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_HOME)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }
         startActivity(homeIntent)
         val ctrl = AppBlockingController.getInstance(this)

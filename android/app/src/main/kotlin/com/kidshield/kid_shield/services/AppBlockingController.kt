@@ -60,6 +60,11 @@ class AppBlockingController private constructor(private val context: Context) {
 
     private var recheckRunnable: Runnable? = null
 
+    // Parent session flag — when true, timer doesn't run (parent's usage)
+    @Volatile
+    var isParentSession = false
+        private set
+
     // Maximum time an overlay can be "active" before we assume it's stuck
     private val OVERLAY_STALE_TIMEOUT_MS = 60_000L
 
@@ -101,16 +106,23 @@ class AppBlockingController private constructor(private val context: Context) {
 
         // Recently verified?
         if (isRecentlyVerified(packageName)) {
-            // Check if daily limit reached — override verification
             val timer = DailyTimerEngine.getInstance(context)
-            if (timer.isLimitReached()) {
-                Log.d(TAG, "Daily limit reached for $packageName — launching task overlay")
-                launchBlockingOverlay(packageName, timeLimitReached = true)
+
+            // Parent session: allow without timer, just recheck for expiry
+            if (isParentSession) {
+                Log.d(TAG, "Parent session for $packageName — no timer")
+                startRecheckTimer(packageName)
+                return false
+            }
+
+            // Kid session: check daily limit
+            if (timer.isEnabled() && timer.isLimitReached()) {
+                Log.d(TAG, "Daily limit reached for $packageName — launching overlay")
+                launchBlockingOverlay(packageName)
                 return true
             }
 
-            Log.d(TAG, "App $packageName was recently verified, allowing access")
-            // Start timer tracking for this verified session
+            Log.d(TAG, "App $packageName was recently verified (kid), allowing access")
             timer.startTracking()
             startRecheckTimer(packageName)
             return false
@@ -123,7 +135,7 @@ class AppBlockingController private constructor(private val context: Context) {
 
     // ─── Overlay lifecycle ────────────────────────────────────────
 
-    private fun launchBlockingOverlay(packageName: String, timeLimitReached: Boolean = false) {
+    private fun launchBlockingOverlay(packageName: String) {
         overlayActive = true
         overlayActiveTimestamp = System.currentTimeMillis()
 
@@ -142,7 +154,6 @@ class AppBlockingController private constructor(private val context: Context) {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             putExtra("blocked_package", packageName)
-            putExtra("time_limit_reached", timeLimitReached)
         }
         context.startActivity(intent)
     }
@@ -153,14 +164,34 @@ class AppBlockingController private constructor(private val context: Context) {
     fun onOverlayDismissed() {
         overlayActive = false
         overlayActiveTimestamp = 0L
-        // Stop timer tracking since user left the blocked app (going home)
-        DailyTimerEngine.getInstance(context).stopTracking()
+        // Only stop timer if it was running (kid session gets timer started separately)
+        if (!isParentSession) {
+            DailyTimerEngine.getInstance(context).stopTracking()
+        }
         val blockedApps = getBlockedApps()
         if (blockedApps.contains(currentForegroundPackage) &&
             isRecentlyVerified(currentForegroundPackage)
         ) {
             startRecheckTimer(currentForegroundPackage)
         }
+    }
+
+    /**
+     * Mark the current session as parent-initiated (no timer consumed).
+     */
+    fun setParentSessionActive() {
+        isParentSession = true
+        DailyTimerEngine.getInstance(context).stopTracking()
+        Log.d(TAG, "Parent session activated — timer paused")
+    }
+
+    /**
+     * Mark the current session as kid-initiated (timer runs).
+     */
+    fun setKidSessionActive() {
+        isParentSession = false
+        DailyTimerEngine.getInstance(context).startTracking()
+        Log.d(TAG, "Kid session activated — timer started")
     }
 
     fun resetLastDetected() {
@@ -228,6 +259,9 @@ class AppBlockingController private constructor(private val context: Context) {
                 }
                 if (!isRecentlyVerified(packageName)) {
                     Log.d(TAG, "Recheck: verification expired for $packageName")
+                    launchBlockingOverlay(packageName)
+                } else if (!isParentSession && DailyTimerEngine.getInstance(context).isLimitReached()) {
+                    Log.d(TAG, "Recheck: daily limit reached for $packageName")
                     launchBlockingOverlay(packageName)
                 } else {
                     handler.postDelayed(this, recheckMs)

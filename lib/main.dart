@@ -22,14 +22,41 @@ void main() {
   runApp(const KidShieldApp());
 }
 
-class KidShieldApp extends StatelessWidget {
+/// Global navigator key for programmatic navigation from native intents.
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+class KidShieldApp extends StatefulWidget {
   const KidShieldApp({super.key});
+
+  @override
+  State<KidShieldApp> createState() => _KidShieldAppState();
+}
+
+class _KidShieldAppState extends State<KidShieldApp> {
+  static const _channel =
+      MethodChannel('com.kidshield.kid_shield/platform');
+
+  @override
+  void initState() {
+    super.initState();
+    _channel.setMethodCallHandler(_handleNativeCall);
+  }
+
+  Future<dynamic> _handleNativeCall(MethodCall call) async {
+    if (call.method == 'navigateToRoute') {
+      final route = call.arguments as String?;
+      if (route != null && navigatorKey.currentState != null) {
+        navigatorKey.currentState!.pushNamed(route);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => AppState()..initialize(),
       child: MaterialApp(
+        navigatorKey: navigatorKey,
         title: 'KidShield',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
